@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>電商成效儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+/* =====================================================================
+ *  客戶設定檔 — 換客戶時只需要改這個檔案
+ *  （正式版的 token 一律放後端環境變數，這裡絕對不能放任何憑證）
+ * ===================================================================== */
+window.DASHBOARD_CONFIG = {
+  brand: 'DEMO',                 // 內部代號（活動命名前綴）
+  brandDisplay: 'DEMO STORE',    // 左上角顯示名稱
+  accountId: '1234567890123456',
+  currency: 'NT$',
+  currencyCode: 'TWD',
+  accent: '#5cb85c',             // 主色（按鈕、分頁底線）
+  accentDark: '#4a9d4a',
+  showDemoBadge: true,           // 接上真資料後改 false
+  defaultPreset: '7',            // today / yesterday / 7 / 30 / 90 / month
+  today: null,                   // null = 用系統日期；demo 想固定日期可填 '2026-11-13'
+  apiBase: '',                   // 正式版後端網址（例：https://xxx.onrender.com）
+
+  // 分頁：可刪減或調整順序；label 可換成客戶實際用的電商平台（SHOPLINE / 91APP / Cyberbiz…）
+  tabs: [
+    { id: 'shop',     label: '🛍️ 電商後台' },
+    { id: 'ga4',      label: '📈 GA4' },
+    { id: 'media',    label: '🌐 媒體總成效' },
+    { id: 'meta',     label: '📊 Meta 成效' },
+    { id: 'creative', label: '🎨 Meta 素材' },
+    { id: 'google',   label: '🔍 Google Ads' },
+  ],
+
+  /* ---------- 以下為 Mock 假資料參數（接真資料後可忽略） ---------- */
+  mock: {
+    dailyOrders: 420, aov: 2980,
+    metaSpend: 27000, googleSpend: 29000, metaCpa: 115, googleCpa: 210,
+    genderSplit: [{ name: '女性', w: 68, roas: 1.1 }, { name: '男性', w: 24, roas: .9 }, { name: '不明', w: 8, roas: .75 }],
+    metaCampaigns: [
+      { name: 'DEMO_購買_CPA_舊客再行銷', w: 5.4, roas: 1.25, ctr: .026, atcF: 9,
+        adsets: ['RT_30天加車', 'RT_180天購買', 'RT_VIP會員', 'RT_女'] },
+      { name: 'DEMO_購買_CPA_新客', w: 3.7, roas: .95, ctr: .018,
+        adsets: ['興趣_保養美妝', '興趣_居家生活', '類似受眾_購買1%', 'Advantage+ 廣泛'] },
+      { name: 'DEMO_購買_目錄_DPA', w: 1.2, roas: 1.1, ctr: .015, adsets: ['DPA_瀏覽未購', 'DPA_廣泛'] },
+      { name: 'DEMO_加車_CPA_新客', w: .6, roas: .35, ctr: .065, atcF: 18, adsets: ['新客_廣泛', '新客_興趣'] },
+      { name: 'DEMO_觸及_CPM', w: .25, roas: .05, ctr: .006, impF: 3, adsets: ['品牌觸及_全台'] },
+    ],
+    googleCampaigns: [
+      { name: 'SEM_Brand_Purchase', w: 4.8, roas: 1.6, ctr: .52, impF: .05, ga4F: .45 },
+      { name: 'PMax_Purchase', w: 2.2, roas: .45, ctr: .0055, impF: 2.5, ga4F: .05 },
+      { name: 'PMax_Purchase_舊客', w: 2.0, roas: .5, ctr: .006, impF: 1.6, ga4F: .08 },
+      { name: 'SEM_Generic_Purchase', w: .8, roas: .5, ctr: .07, impF: .1, ga4F: .1 },
+      { name: 'Shopping_Standard', w: .4, roas: .7, ctr: .012, impF: .4, ga4F: .1 },
+    ],
+    creatives: [
+      { camp: 'DEMO_購買_CPA_舊客再行銷', name: '2611_雙11_倒數一天', type: '圖像' },
+      { camp: 'DEMO_購買_CPA_舊客再行銷', name: '2611_雙11_KOL-開箱', type: '影片' },
+      { camp: 'DEMO_購買_CPA_舊客再行銷', name: '2611_雙11_最低5折[輪播]', type: '輪播' },
+      { camp: 'DEMO_購買_CPA_舊客再行銷', name: '2611_會員回饋金', type: '圖像' },
+      { camp: 'DEMO_購買_CPA_舊客再行銷', name: '2610_熱銷TOP10[輪播]', type: '輪播' },
+      { camp: 'DEMO_購買_CPA_新客', name: '2611_新客首購禮', type: '圖像' },
+      { camp: 'DEMO_購買_CPA_新客', name: '2611_雙11_主視覺MV', type: '影片' },
+      { camp: 'DEMO_購買_CPA_新客', name: '2611_KOL-口碑推薦', type: '影片' },
+      { camp: 'DEMO_購買_CPA_新客', name: '2610_明星商品_保濕精華', type: '圖像' },
+      { camp: 'DEMO_購買_CPA_新客', name: '2610_9宮格[輪播]', type: '輪播' },
+      { camp: 'DEMO_購買_目錄_DPA', name: 'DPA_目錄_預設模板', type: '目錄' },
+      { camp: 'DEMO_購買_目錄_DPA', name: 'DPA_目錄_折扣框', type: '目錄' },
+      { camp: 'DEMO_加車_CPA_新客', name: '2611_滿額贈[輪播]', type: '輪播' },
+      { camp: 'DEMO_加車_CPA_新客', name: '2611_限時加購', type: '圖像' },
+      { camp: 'DEMO_觸及_CPM', name: '2611_品牌形象影片', type: '影片' },
+    ],
+    products: [
+      { name: '水感保濕精華 30ml', cat: '女', price: 1280 },
+      { name: '舒緩修護乳霜 50ml', cat: '女', price: 1580 },
+      { name: '胺基酸潔顏慕斯', cat: '中性', price: 680 },
+      { name: '男士控油洗面乳', cat: '男', price: 590 },
+      { name: '亮白安瓶 7入組', cat: '女', price: 1990 },
+      { name: '高效防曬乳 SPF50', cat: '中性', price: 890 },
+      { name: '玻尿酸面膜 10片', cat: '女', price: 790 },
+      { name: '男士三效保濕凝露', cat: '男', price: 980 },
+      { name: '溫和卸妝油 200ml', cat: '女', price: 850 },
+      { name: '頭皮淨化洗髮精', cat: '中性', price: 720 },
+      { name: '護手霜三入禮盒', cat: '中性', price: 990 },
+      { name: '男士鬍後舒緩水', cat: '男', price: 650 },
+      { name: '精華油 旅行組', cat: '女', price: 1490 },
+      { name: '身體乳 香氛款', cat: '中性', price: 780 },
+      { name: '眼周緊緻霜', cat: '女', price: 1680 },
+      { name: '男士全效面霜', cat: '男', price: 1180 },
+      { name: '去角質凝膠', cat: '中性', price: 560 },
+    ],
+    coupons: [
+      { name: '新會員首購 $100', code: 'NEW100', type: 'amt', v: 100, w: 9 },
+      { name: '加 LINE 好友折 $150', code: 'LINE150', type: 'amt', v: 150, w: 8 },
+      { name: '雙11 全館 9 折', code: 'DD11', type: 'pct', v: .1, w: 12 },
+      { name: 'KOL 小安 專屬碼', code: 'ANN88', type: 'pct', v: .12, w: 6 },
+      { name: 'KOL 阿哲 專屬碼', code: 'JER95', type: 'pct', v: .05, w: 4 },
+      { name: '部落格折扣碼', code: 'BLOG10', type: 'pct', v: .1, w: 3 },
+      { name: '購物車挽回', code: 'CART24', type: 'amt', v: 50, w: 3 },
+      { name: '生日禮', code: 'BDAY200', type: 'amt', v: 200, w: 2 },
+      { name: 'VIP 會員 85 折', code: 'VIP85', type: 'pct', v: .15, w: 2.5 },
+      { name: '企業福委特約', code: 'CORP', type: 'pct', v: .1, w: 1 },
+    ],
+    ga4Channels: [
+      { name: 'Paid Social', s: 26, r: 8, dur: 145, b: .09 }, { name: 'Direct', s: 24, r: 22, dur: 194, b: .17 },
+      { name: 'Unassigned', s: 18, r: 45, dur: 340, b: .26 }, { name: 'Paid Search', s: 12, r: 12, dur: 340, b: .12 },
+      { name: 'Organic Search', s: 7, r: 5, dur: 360, b: .11 }, { name: 'Organic Social', s: 6, r: 2, dur: 184, b: .06 },
+      { name: 'Referral', s: 3, r: 2, dur: 237, b: .15 }, { name: 'Email', s: 1, r: .6, dur: 223, b: .15 },
+      { name: '(other)', s: 3, r: 0, dur: 92, b: 1 },
+    ],
+  },
+};
+
+</script>
+<style>
+:root{
+  --accent:#5cb85c; --accent-dark:#4a9d4a;
+  --bg:#f4f5f7; --card:#fff; --ink:#1f2328; --muted:#6b7280; --line:#e5e7eb;
+  --pos:#2e9e4f; --neg:#d64545;
+  --meta:#4a7ff0; --google:#58a55c; --blue:#3b6fd8; --teal:#2fb5b0; --pink:#d6338a; --orange:#e8892d; --purple:#7b5cd6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;font-size:14px}
+header{background:#0f0f10;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:18px}
+.brand{font-weight:800;letter-spacing:.35em;font-size:20px;padding-right:18px;border-right:1px solid #444}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .sub{font-size:12px;color:#aaa;margin-top:2px}
+header .right{margin-left:auto;text-align:right;font-size:12px;color:#ccc;line-height:1.7}
+.demo-badge{display:inline-block;background:#f5b400;color:#111;font-size:11px;font-weight:700;padding:1px 8px;border-radius:10px;margin-left:8px;vertical-align:2px}
+.toolbar{background:#fff;padding:12px 20px 6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pill{border:1px solid #d6d9de;background:#fff;border-radius:16px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--ink)}
+.pill.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.toolbar input[type=date]{border:1px solid #d6d9de;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit}
+.btn-go{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;font-size:13px}
+.btn-go:hover{background:var(--accent-dark)}
+.status{background:#fff;padding:0 20px 10px;font-size:12px;color:var(--pos)}
+nav{background:#fff;border-bottom:1px solid var(--line);padding:0 20px;display:flex;gap:4px;overflow-x:auto;position:sticky;top:0;z-index:5}
+nav button{border:0;background:none;padding:12px 16px;font-size:14px;cursor:pointer;color:#555;border-bottom:3px solid transparent;white-space:nowrap;font-family:inherit}
+nav button.on{color:var(--accent-dark);border-bottom-color:var(--accent);font-weight:700}
+main{padding:18px 20px 40px;max-width:1500px;margin:0 auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border-radius:12px;padding:14px 14px 12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi.alt{background:#eef4fc}
+.kpi .l{font-size:12px;color:#444;margin-bottom:6px}
+.kpi .v{font-size:21px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .d{font-size:12px;margin-top:4px}
+.kpi .x{font-size:11px;color:var(--muted);margin-top:2px}
+.up{color:var(--pos)}.down{color:var(--neg)}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+.grid-half{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:16px;min-width:0}
+.grid2 .card,.grid-half .card{margin-bottom:0}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.card-h h3{margin:0;font-size:15px}
+.card-h .note{font-size:12px;color:var(--muted)}
+.seg{margin-left:auto;display:flex;gap:4px}
+.seg button{border:1px solid #d6d9de;background:#fff;border-radius:14px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chart{position:relative;height:300px}
+.chart.sm{height:260px}
+.tbl-wrap{overflow-x:auto;max-height:520px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:#f7f8fa;font-weight:600;color:#444;text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+th:first-child,td:first-child{text-align:left}
+th.l,td.l{text-align:left}
+th .arr{color:#aaa;font-size:10px;margin-left:3px}
+td{padding:8px 10px;border-bottom:1px solid #f0f1f3;text-align:right;white-space:nowrap}
+tr.total td{font-weight:700;background:#fafbfc}
+tr.child td{background:#fbfcfe;font-size:12px;color:#444}
+tr.child td:first-child{padding-left:30px}
+.tog{cursor:pointer;color:#999;margin-right:6px;font-size:10px;display:inline-block;width:10px}
+.share{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.share i{display:inline-block;height:6px;border-radius:3px;background:var(--accent)}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:#eef1f5;color:#555;margin-right:6px}
+.thumb{width:44px;height:44px;border-radius:6px;display:inline-block;vertical-align:middle}
+.bar-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.bar-row{display:grid;grid-template-columns:70px 1fr 54px;align-items:center;gap:8px;font-size:12px}
+.bar-row .track{background:#f0f1f3;border-radius:4px;height:10px;overflow:hidden}
+.bar-row .fill{height:100%;background:var(--blue);border-radius:4px}
+.warn{background:#fff7e6;border:1px solid #ffe2a8;color:#8a5a00;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:16px}
+select{border:1px solid #d6d9de;border-radius:8px;padding:5px 10px;font-family:inherit;font-size:13px}
+.legend-note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+.hidden{display:none}
+.br{display:none}
+.loading{opacity:.4;pointer-events:none;transition:opacity .2s}
+@media (max-width:900px){
+  .grid2,.grid-half{grid-template-columns:1fr}
+  header{flex-wrap:wrap;padding:12px 16px}
+  header .right{margin-left:0;text-align:left}
+  .toolbar,.status,nav{padding-left:16px;padding-right:16px}
+  main{padding:14px 16px 30px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi .v{font-size:18px}
+}
+@media (max-width:640px){
+  header{gap:6px 12px;padding:10px 12px}
+  header h1{font-size:15px}
+  header .sub{display:none}
+  header .right{display:flex;gap:12px;width:100%;font-size:11px;line-height:1.4}
+  .brand{font-size:16px;padding-right:12px}
+  .phase-bar{padding:0 8px;gap:0}
+  .phase-bar button{padding:10px 10px;font-size:13px}
+  .phase-bar .info{font-size:11px;padding:2px 4px 8px;line-height:1.6}
+  .toolbar{gap:6px;padding:10px 12px 6px}
+  .pill{padding:5px 11px;font-size:12px}
+  .br{display:block;width:100%;height:0}
+  .toolbar input[type=date]{flex:1;min-width:0;padding:5px 6px;font-size:12px}
+  .btn-go{padding:7px 12px;font-size:12px}
+  .status{padding:0 12px 8px;font-size:11px}
+  nav{padding:0 4px}
+  nav button{padding:11px 11px;font-size:13px}
+  main{padding:12px 10px 30px}
+  .kpis{gap:8px;margin-bottom:12px}
+  .kpi{padding:11px 11px 10px;border-radius:10px}
+  .kpi .l{font-size:11px}
+  .kpi .v{font-size:17px}
+  .kpi .x{font-size:10px}
+  .grid2,.grid-half{gap:12px;margin-bottom:12px}
+  .card{padding:14px 12px;border-radius:10px;margin-bottom:12px}
+  .card-h{gap:8px}
+  .card-h h3{font-size:14px}
+  .chart{height:240px}
+  .chart.sm{height:220px}
+  table{font-size:12px}
+  th,td{padding:7px 8px}
+  .tbl-wrap th:first-child,.tbl-wrap td:first-child{position:sticky;left:0;z-index:2;white-space:normal;min-width:96px;max-width:150px;box-shadow:1px 0 0 var(--line)}
+  .tbl-wrap td:first-child{background:#fff}
+  .tbl-wrap th:first-child{z-index:3}
+  tr.total td:first-child{background:#fafbfc}
+  tr.child td:first-child{background:#fbfaff;padding-left:14px}
+  .thumb{width:34px;height:34px}
+  .ms{margin:28px 4px 32px}
+  .ms .mk{font-size:10px}
+  .ms-sum{gap:6px 14px;font-size:12px}
+  .ms-sum b{font-size:14px}
+  .fn-row{grid-template-columns:72px 1fr 64px;font-size:12px}
+  .bar-row{grid-template-columns:56px 1fr 46px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand" id="brandName">BRAND</div>
+  <div>
+    <h1>成效儀表板<span class="demo-badge" id="demoBadge">DEMO 資料</span></h1>
+    <div class="sub" id="accountLine"></div>
+  </div>
+  <div class="right"><div>← 回總覽</div><div>最後更新：<span id="lastUpdate"></span></div></div>
+</header>
+
+<div class="toolbar">
+  <button class="pill" data-preset="today">今天</button>
+  <button class="pill" data-preset="yesterday">昨天</button>
+  <button class="pill on" data-preset="7">近7天</button>
+  <button class="pill" data-preset="30">近30天</button>
+  <button class="pill" data-preset="90">近90天</button>
+  <button class="pill" data-preset="month">本月</button>
+  <span class="br"></span>
+  <input type="date" id="dFrom"> 至 <input type="date" id="dTo">
+  <button class="btn-go" id="btnRefresh">⟳ 更新資料</button>
+</div>
+<div class="status" id="status"></div>
+
+<nav id="tabs"></nav>
+<main id="main"></main>
+
+<script>
+/* =====================================================================
+ *  電商成效儀表板 — 可重複套用的模板
+ *  客戶設定全部在 config.js；資料層在 DataSource（目前為 mock）。
+ *  接正式資料時：實作 DataSource.load() 改打後端 API（token 只放後端）。
+ * ===================================================================== */
+const CFG = window.DASHBOARD_CONFIG;
+
+/* ---------- 格式化 ---------- */
+const fmtN = n => (isFinite(n) ? Math.round(n) : 0).toLocaleString('en-US');
+const fmtM = n => CFG.currency + fmtN(n);
+const fmtX = n => (isFinite(n) && n > 0) ? n.toFixed(2) + 'x' : '—';
+const fmtP = (n, d = 1) => isFinite(n) ? (n * 100).toFixed(d) + '%' : '—';
+const fmtW = n => n >= 1e4 ? (n / 1e4).toFixed(1) + '萬' : fmtN(n);
+const fmtT = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+const div = (a, b) => b ? a / b : NaN;
+const sum = (arr, k) => arr.reduce((s, r) => s + (typeof k === 'function' ? k(r) : r[k] || 0), 0);
+const iso = d => d.toISOString().slice(0, 10);
+const addDays = (ds, n) => { const d = new Date(ds + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 864e5) + 1;
+
+/* ---------- 可重現的亂數（同一天永遠同一組假資料） ---------- */
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let a = hash(String(seed)); return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* =====================================================================
+ *  Mock 資料產生器
+ * ===================================================================== */
+const Mock = (() => {
+  const S = CFG.mock;
+  function promo(ds) {
+    const md = ds.slice(5);
+    const map = { '11-11': 3.2, '11-10': 1.5, '11-12': 1.9, '11-09': 1.15, '12-12': 2.3, '12-11': 1.3, '06-18': 2.0, '06-17': 1.3, '09-09': 1.6, '10-10': 1.5, '01-01': 1.4 };
+    return map[md] || 1;
+  }
+  const dayCache = {};
+  function day(ds) {
+    if (dayCache[ds]) return dayCache[ds];
+    const r = rng(ds + CFG.brand), n = (v = .3) => 1 - v / 2 + r() * v;
+    const d = new Date(ds + 'T00:00:00Z');
+    const wf = [0.88, 1.02, 0.97, 1, 1.03, 1.08, 0.92][d.getUTCDay()];
+    const doy = (d - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5;
+    const season = 1 + 0.12 * Math.sin((doy - 80) / 365 * 2 * Math.PI);
+    const p = promo(ds), ps = Math.sqrt(p);
+    const aov = S.aov * n(.18) * (p > 1.5 ? 0.92 : 1);
+    const orders = S.dailyOrders * wf * season * p * n(.25);
+    const revenue = orders * aov;
+    const cancelRate = 0.1 + r() * 0.09;
+    const gmv = revenue / (1 - cancelRate);
+    const mSpend = S.metaSpend * wf * ps * n(.35), gSpend = S.googleSpend * wf * ps * n(.35);
+    const mPur = mSpend / (S.metaCpa * n(.3) / (p > 1.5 ? 1.25 : 1)), gPur = gSpend / (S.googleCpa * n(.3) / (p > 1.5 ? 1.2 : 1));
+    const mImp = mSpend * 1000 / (150 * n(.3)), gImp = gSpend * 1000 / (360 * n(.4));
+    const mClk = mImp * 0.0185 * n(.3), gClk = gImp * 0.02 * n(.3);
+    const sessions = orders / (0.0135 * n(.3) * (p > 1.5 ? 1.6 : 1));
+    const gaPur = orders * 0.93 * n(.1);
+    const gaRev = revenue * 0.91 * n(.08);
+    const adShare = Math.max(0.03, (0.26 - (p > 1.5 ? 0.16 : 0)) * n(.4));
+    const ch = { 廣告: adShare, Line推播: 0.06 * n(.6), 社群: 0.05 * n(.5), 自然搜尋: 0.08 * n(.4), Direct: 0.16 * n(.4) };
+    ch.其他 = Math.max(0.05, 1 - Object.values(ch).reduce((a, b) => a + b, 0));
+    const chT = { 廣告: 0.38 * n(.3), Line推播: 0.05 * n(.5), 社群: 0.07 * n(.4), 自然搜尋: 0.07 * n(.4), Direct: 0.2 * n(.3) };
+    chT.其他 = Math.max(0.05, 1 - Object.values(chT).reduce((a, b) => a + b, 0));
+    return dayCache[ds] = {
+      date: ds,
+      shop: { gmv, revenue, orders, cancel: gmv - revenue, refund: revenue * 0.004 * r() },
+      meta: { spend: mSpend, imp: mImp, clk: mClk, atc: mPur * 9 * n(.3), pur: mPur, val: mPur * aov * 0.95 * n(.15) },
+      google: { spend: gSpend, imp: gImp, clk: gClk, pur: gPur, val: gPur * aov * 0.78 * n(.2) },
+      ga4: { sessions, atc: sessions * 0.15 * n(.3), pur: gaPur, rev: gaRev, adRev: gaRev * adShare, dur: 230 * n(.3), bounce: 0.13 * n(.5),
+        chRev: Object.fromEntries(Object.entries(ch).map(([k, v]) => [k, v * gaRev])),
+        chSes: Object.fromEntries(Object.entries(chT).map(([k, v]) => [k, v * sessions])) }
+    };
+  }
+  /* 依權重把總數拆給各項目，並加上每個區間固定的雜訊 */
+  function split(total, items, seed, noise = .3) {
+    const r = rng(seed); const w = items.map(it => (it.w || 1) * (1 - noise / 2 + r() * noise));
+    const W = w.reduce((a, b) => a + b, 0);
+    return items.map((it, i) => total * w[i] / W);
+  }
+  return { day, split };
+})();
+
+/* =====================================================================
+ *  DataSource：之後接正式 API 時只要換掉這一段
+ * ===================================================================== */
+const DataSource = {
+  async load(from, to) {
+    // 正式版：return fetch(`${CFG.apiBase}/summary?from=${from}&to=${to}`).then(r => r.json());
+    await new Promise(r => setTimeout(r, 350));
+    const days = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) days.push(Mock.day(d));
+    return days;
+  }
+};
+
+/* =====================================================================
+ *  狀態與工具
+ * ===================================================================== */
+const TODAY = CFG.today || (() => { const d = new Date(); return iso(new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))); })();
+const state = { tab: CFG.tabs[0].id, from: addDays(TODAY, -7), to: addDays(TODAY, -1), cur: [], prev: [], gran: {}, filters: {} };
+const charts = {};
+
+function aggregate(days) {
+  const k = (path) => sum(days, d => path.split('.').reduce((o, p) => o[p], d));
+  const m = { spend: k('meta.spend'), imp: k('meta.imp'), clk: k('meta.clk'), atc: k('meta.atc'), pur: k('meta.pur'), val: k('meta.val') };
+  const g = { spend: k('google.spend'), imp: k('google.imp'), clk: k('google.clk'), pur: k('google.pur'), val: k('google.val') };
+  const s = { gmv: k('shop.gmv'), revenue: k('shop.revenue'), orders: k('shop.orders'), cancel: k('shop.cancel'), refund: k('shop.refund') };
+  const a = { sessions: k('ga4.sessions'), atc: k('ga4.atc'), pur: k('ga4.pur'), rev: k('ga4.rev'), adRev: k('ga4.adRev'),
+    dur: div(sum(days, d => d.ga4.dur * d.ga4.sessions), k('ga4.sessions')), bounce: div(sum(days, d => d.ga4.bounce * d.ga4.sessions), k('ga4.sessions')) };
+  return { m, g, s, a, spend: m.spend + g.spend, pur: m.pur + g.pur, val: m.val + g.val };
+}
+
+function bucket(days, gran) {
+  if (gran === 'day') return days.map(d => ({ label: d.date, days: [d] }));
+  const map = new Map();
+  for (const d of days) {
+    let key;
+    if (gran === 'month') key = d.date.slice(0, 7);
+    else { const dt = new Date(d.date + 'T00:00:00Z'); const off = (dt.getUTCDay() + 6) % 7; key = addDays(d.date, -off) + ' 週'; }
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(d);
+  }
+  return [...map].map(([label, days]) => ({ label, days }));
+}
+
+function delta(cur, prev, invert = false) {
+  if (!isFinite(cur) || !isFinite(prev) || !prev) return '';
+  const p = (cur - prev) / Math.abs(prev);
+  const good = invert ? p < 0 : p >= 0;
+  return `<div class="d ${good ? 'up' : 'down'}">${p >= 0 ? '+' : ''}${(p * 100).toFixed(1)}%</div>`;
+}
+function kpi(label, val, cur, prev, opt = {}) {
+  return `<div class="kpi ${opt.alt ? 'alt' : ''}"><div class="l">${label}</div><div class="v" style="color:${opt.color || 'var(--ink)'}">${val}</div>${delta(cur, prev, opt.invert)}${opt.extra ? `<div class="x">${opt.extra}</div>` : ''}</div>`;
+}
+function seg(id, opts = [['day', '日'], ['week', '週'], ['month', '月']]) {
+  const cur = state.gran[id] || opts[0][0];
+  return `<div class="seg" data-seg="${id}">${opts.map(([v, l]) => `<button data-v="${v}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+}
+function card(title, body, opt = {}) {
+  return `<div class="card"><div class="card-h"><h3>${title}</h3>${opt.note ? `<span class="note">${opt.note}</span>` : ''}${opt.right || ''}</div>${body}</div>`;
+}
+const canvas = (id, sm) => `<div class="chart ${sm ? 'sm' : ''}"><canvas id="${id}"></canvas></div>`;
+
+/* ---------- 可排序表格 ---------- */
+const tables = {};
+function table(id, cols, rows, opt = {}) {
+  tables[id] = { cols, rows, opt, sort: tables[id]?.sort || opt.sort || null };
+  return `<div class="tbl-wrap" id="tw-${id}">${tableHTML(id)}</div>`;
+}
+function tableHTML(id) {
+  const { cols, rows, opt, sort } = tables[id];
+  let rs = [...rows];
+  if (sort) { const c = cols.find(c => c.k === sort.k); const get = c.sv || (r => r[c.k]); rs.sort((a, b) => { const x = get(a), y = get(b); return (typeof x === 'string' ? x.localeCompare(y) : (x || 0) - (y || 0)) * sort.dir; }); }
+  const th = cols.map(c => `<th class="${c.l ? 'l' : ''}" data-sort="${id}|${c.k}">${c.h}${sort && sort.k === c.k ? `<span class="arr">${sort.dir > 0 ? '▲' : '▼'}</span>` : ''}</th>`).join('');
+  const rowHTML = (r, cls = '') => `<tr class="${cls}">${cols.map(c => `<td class="${c.l ? 'l' : ''}">${c.f ? c.f(r[c.k], r) : r[c.k]}</td>`).join('')}</tr>`;
+  let body = '';
+  rs.forEach((r, i) => {
+    body += rowHTML(r);
+    if (r._children && state.filters[`${id}-open-${r._id}`]) r._children.forEach(ch => body += rowHTML(ch, 'child'));
+  });
+  if (opt.total) body += rowHTML(opt.total, 'total');
+  return `<table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`;
+}
+function refreshTable(id) { const el = document.getElementById('tw-' + id); if (el) el.innerHTML = tableHTML(id); }
+
+/* ---------- 圖表 ---------- */
+const PHONE = matchMedia('(max-width:640px)').matches;
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.font.size = PHONE ? 10 : 11;
+Chart.defaults.color = '#555';
+function mkChart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  const el = document.getElementById(id); if (!el) return;
+  charts[id] = new Chart(el, cfg);
+}
+const moneyTick = v => v >= 1e6 ? CFG.currency + (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? CFG.currency + Math.round(v / 1e3) + 'K' : CFG.currency + v;
+function comboChart(id, labels, bars, line, opt = {}) {
+  mkChart(id, {
+    data: { labels, datasets: [
+      ...bars.map(b => ({ type: 'bar', label: b.label, data: b.data, backgroundColor: b.color, borderColor: b.border || b.color, borderWidth: 1, stack: opt.stacked ? 's' : b.label, yAxisID: 'y', order: 2, borderRadius: 3 })),
+      ...(line ? [{ type: 'line', label: line.label, data: line.data, borderColor: line.color || '#e8892d', backgroundColor: line.color || '#e8892d', yAxisID: 'y1', tension: .3, pointRadius: 3, order: 1 }] : [])
+    ] },
+    options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { boxWidth: PHONE ? 10 : 12, padding: PHONE ? 6 : 10 } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}：${c.dataset.yAxisID === 'y1' ? (line.fmt || fmtX)(c.raw) : (opt.yFmt || fmtM)(c.raw)}` } } },
+      scales: { x: { stacked: !!opt.stacked, grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: PHONE ? 5 : 12 } },
+        y: { stacked: !!opt.stacked, beginAtZero: true, ticks: { callback: opt.yTick || moneyTick } },
+        y1: { display: !!line, position: 'right', beginAtZero: true, grid: { display: false }, ticks: { callback: line?.tick || (v => v + 'x') } } } }
+  });
+}
+function donut(id, labels, data, colors) {
+  mkChart(id, { type: 'doughnut', data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+    options: { maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: PHONE ? 'bottom' : 'right', labels: { boxWidth: PHONE ? 10 : 12 } },
+      tooltip: { callbacks: { label: c => { const t = c.dataset.data.reduce((a, b) => a + b, 0); return `${c.label}：${fmtM(c.raw)}（${fmtP(c.raw / t)}）`; } } } } } });
+}
+const PALETTE = ['#4a7ff0', '#58a55c', '#e8892d', '#7b5cd6', '#2fb5b0', '#d6338a', '#9aa3ad', '#c9a227'];
+
+/* =====================================================================
+ *  衍生資料（活動 / 素材 / 商品 / 受眾…）
+ * ===================================================================== */
+function seedKey(tag) { return `${tag}|${state.from}|${state.to}`; }
+function metaCampaigns(A) {
+  const cs = CFG.mock.metaCampaigns;
+  const sp = Mock.split(A.m.spend, cs, seedKey('mc'));
+  const pv = cs.map((c, i) => sp[i] * (c.roas || 1));
+  const pvT = pv.reduce((a, b) => a + b, 0);
+  return cs.map((c, i) => {
+    const spend = sp[i], share = spend / A.m.spend, val = A.m.val * pv[i] / pvT, pur = val / (A.m.val / A.m.pur) ;
+    const imp = A.m.imp * share * (c.impF || 1), clk = imp * (c.ctr || 0.018), atc = pur * (c.atcF || 9);
+    const row = { _id: c.name, name: c.name, spend, share, imp, ctr: div(clk, imp), clk, cplc: div(spend, clk), atc, pur, val, roas: div(val, spend), cpa: div(spend, pur), ga4roas: div(val, spend) * 0.1 * (0.6 + rng(c.name)() * 0.8) };
+    const sets = c.adsets || [];
+    const ssp = Mock.split(spend, sets.map(n => ({ n })), seedKey('as' + c.name), .9);
+    row._children = sets.map((n, j) => { const f = ssp[j] / spend, rr = rng(n + c.name)() * .6 + .7; const p2 = pur * f * rr; return { name: '↳ ' + n, spend: ssp[j], share: ssp[j] / A.m.spend, imp: imp * f, ctr: row.ctr * rr, clk: clk * f, cplc: div(ssp[j], clk * f), atc: atc * f * rr, pur: p2, val: val * f * rr, roas: div(val * f * rr, ssp[j]), cpa: div(ssp[j], p2), ga4roas: row.ga4roas * rr }; });
+    return row;
+  });
+}
+function googleCampaigns(A) {
+  const cs = CFG.mock.googleCampaigns;
+  const sp = Mock.split(A.g.spend, cs, seedKey('gc'));
+  const pv = cs.map((c, i) => sp[i] * (c.roas || 1)); const pvT = pv.reduce((a, b) => a + b, 0);
+  const iw = cs.map((c, i) => sp[i] * (c.impF || 1)); const iwT = iw.reduce((a, b) => a + b, 0);
+  return cs.map((c, i) => {
+    const spend = sp[i], val = A.g.val * pv[i] / pvT, pur = val / (A.g.val / A.g.pur), imp = A.g.imp * iw[i] / iwT, clk = imp * (c.ctr || .02);
+    return { name: c.name, spend, share: spend / A.g.spend, imp, clk, ctr: div(clk, imp), pur, val, roas: div(val, spend), cpa: div(spend, pur), ga4roas: div(val, spend) * (c.ga4F || .3) };
+  });
+}
+function creatives(A, campFilter) {
+  const list = CFG.mock.creatives.filter(c => campFilter === 'all' || c.camp === campFilter);
+  const cs = metaCampaigns(A);
+  return list.map(c => {
+    const camp = cs.find(x => x.name === c.camp) || cs[0];
+    const siblings = CFG.mock.creatives.filter(x => x.camp === c.camp);
+    const sp = Mock.split(camp.spend, siblings, seedKey('cr' + c.camp), .8);
+    const i = siblings.indexOf(c), spend = sp[i], f = spend / camp.spend, r = rng(c.name + state.from);
+    const q = 0.65 + r() * 0.8;
+    const imp = camp.imp * f * (0.8 + r() * .4), ctr = camp.ctr * (0.6 + r() * .9), clk = imp * ctr, pur = camp.pur * f * q, val = camp.val * f * q * (0.85 + r() * .3);
+    return { name: c.name, type: c.type, hue: hash(c.name) % 360, spend, imp, ctr, cplc: div(spend, clk), atc: camp.atc * f * q, pur, val, roas: div(val, spend), cpa: div(spend, pur) };
+  }).filter(r => r.spend > 1).sort((a, b) => b.spend - a.spend);
+}
+function demo(total, key, groups) {
+  const r = rng(seedKey(key));
+  return groups.map(g => { const nz = 0.85 + r() * .3; return { ...g, wN: g.w * nz }; })
+    .map((g, _, arr) => { const W = arr.reduce((a, b) => a + b.wN, 0); return g; })
+    .map((g, _, arr) => { const W = arr.reduce((a, b) => a + b.wN, 0); const share = g.wN / W; return { name: g.name, share, roasF: g.roas * (0.9 + r() * .2) }; });
+}
+function demoRows(spend, pur, val, key, groups, extra) {
+  const d = demo(spend, key, groups); const pvT = d.reduce((a, g) => a + g.share * g.roasF, 0);
+  return d.map(g => { const s = spend * g.share, v = val * g.share * g.roasF / pvT, p = pur * g.share * g.roasF / pvT; const row = { name: g.name, share: g.share, spend: s, pur: p, val: v, roas: div(v, s), cpa: div(s, p) }; if (extra) Object.assign(row, extra(row)); return row; });
+}
+const AGE = [{ name: '18-24', w: 3, roas: .8 }, { name: '25-34', w: 46, roas: 1.15 }, { name: '35-44', w: 33, roas: 1.05 }, { name: '45-54', w: 6, roas: .9 }, { name: '55-64', w: 1.2, roas: .5 }, { name: '65+', w: .6, roas: .9 }, { name: '不明', w: 8, roas: .75 }];
+const GENDER = () => CFG.mock.genderSplit;
+
+function products(A, cat) {
+  const ps = CFG.mock.products.filter(p => cat === 'all' || p.cat === cat || p.cat === '中性');
+  const units = A.s.orders * 1.7;
+  const all = CFG.mock.products, sp = Mock.split(units, all, seedKey('pd'), .35);
+  return ps.map(p => { const i = all.indexOf(p), u = sp[i], r = rng(p.name + state.from); const views = u / (0.012 + r() * 0.012) ; return { name: p.name, units: u, rev: u * p.price, atcR: 0.015 + r() * 0.05, cvr: div(u * 0.85, views), views, share: u / units }; })
+    .sort((a, b) => b.units - a.units);
+}
+function coupons(A) {
+  const cs = CFG.mock.coupons, used = A.s.orders * 0.26, sp = Mock.split(used, cs, seedKey('cp'), .4);
+  return cs.map((c, i) => { const u = sp[i]; const gmv = u * CFG.mock.aov * (0.9 + rng(c.code)() * .4); const disc = c.type === 'amt' ? u * c.v : gmv * c.v; return { name: c.name, code: c.code, uses: u, disc, gmv, share: gmv / A.s.gmv }; })
+    .sort((a, b) => b.uses - a.uses);
+}
+
+/* =====================================================================
+ *  各分頁
+ * ===================================================================== */
+const Views = {};
+
+/* ---------- 電商後台 ---------- */
+Views.shop = () => {
+  const A = aggregate(state.cur), P = aggregate(state.prev);
+  const roas = div(A.s.revenue, A.spend), roasP = div(P.s.revenue, P.spend);
+  const cancelR = div(A.s.cancel + A.s.refund, A.s.gmv), cancelRP = div(P.s.cancel + P.s.refund, P.s.gmv);
+  const html = `
+  <div class="kpis">
+    ${kpi('成交額', fmtM(A.s.gmv), A.s.gmv, P.s.gmv, { color: 'var(--blue)' })}
+    ${kpi('總營業額', fmtM(A.s.revenue), A.s.revenue, P.s.revenue, { color: 'var(--pink)' })}
+    ${kpi('總訂單量', fmtN(A.s.orders), A.s.orders, P.s.orders, { color: 'var(--purple)' })}
+    ${kpi('平均客單價', fmtM(div(A.s.revenue, A.s.orders)), div(A.s.revenue, A.s.orders), div(P.s.revenue, P.s.orders), { color: 'var(--orange)' })}
+    ${kpi('退貨取消佔比', fmtP(cancelR), cancelR, cancelRP, { invert: true, extra: `退 ${fmtM(A.s.refund)} / 取 ${fmtM(A.s.cancel)}` })}
+    ${kpi('廣告花費', fmtM(A.spend), A.spend, P.spend, { color: 'var(--blue)' })}
+    ${kpi('全站 ROAS', fmtX(roas), roas, roasP, { color: 'var(--pos)' })}
+  </div>
+  ${card('📅 每日趨勢', canvas('cShop'), { right: seg('shopTrend') })}
+  ${card('📋 每日明細', table('tShopDaily', [
+    { k: 'label', h: '日期', l: 1 }, { k: 'gmv', h: '成交額', f: fmtM }, { k: 'revenue', h: '總營業額', f: fmtM }, { k: 'orders', h: '總訂單量', f: fmtN },
+    { k: 'aov', h: '平均客單價', f: fmtM }, { k: 'cr', h: '退貨取消佔比', f: v => fmtP(v) }, { k: 'spend', h: '廣告花費', f: fmtM }, { k: 'roas', h: '全站ROAS', f: fmtX }],
+    bucket(state.cur, state.gran.shopDaily || 'day').map(b => { const a = aggregate(b.days); return { label: b.label, gmv: a.s.gmv, revenue: a.s.revenue, orders: a.s.orders, aov: div(a.s.revenue, a.s.orders), cr: div(a.s.cancel + a.s.refund, a.s.gmv), spend: a.spend, roas: div(a.s.revenue, a.spend) }; })), { right: seg('shopDaily') })}
+  ${card('🏆 熱門品項', table('tProd', [
+    { k: 'rank', h: '#', l: 1 }, { k: 'name', h: '商品名稱', l: 1 }, { k: 'share', h: '銷量佔比', f: v => `<span class="share"><i style="width:${Math.max(4, v * 400)}px"></i>${fmtP(v)}</span>` },
+    { k: 'units', h: '銷售量', f: v => fmtN(v) + ' 件' }, { k: 'rev', h: '營收', f: fmtM }, { k: 'atcR', h: '加購率', f: v => fmtP(v) }, { k: 'cvr', h: '轉換率', f: v => fmtP(v, 2) }],
+    products(A, state.filters.prodCat || 'all').slice(0, 15).map((p, i) => ({ ...p, rank: i + 1 }))), { right: seg('prodCat', [['all', 'All'], ['男', '男生'], ['女', '女生']]) })}
+  <div class="grid-half">
+    ${card('💡 有潛力品項', table('tPot', [
+      { k: 'name', h: '商品名稱', l: 1 }, { k: 'views', h: '瀏覽數', f: fmtN }, { k: 'atcR', h: '加購率', f: v => fmtP(v) }, { k: 'cvr', h: '轉換率', f: v => fmtP(v, 2) }, { k: 'rev', h: '營收', f: fmtM }],
+      products(A, 'all').filter(p => p.cvr < 0.02).sort((a, b) => b.views - a.views).slice(0, 10)), { note: '高瀏覽但轉換率 < 2%，值得優化' })}
+    ${(() => { const cp = coupons(A); return card('🎟️ 折扣碼使用', table('tCoupon', [
+      { k: 'name', h: '優惠名稱', l: 1 }, { k: 'code', h: '折扣碼', l: 1, f: v => `<span class="tag">${v}</span>` }, { k: 'uses', h: '使用次數', f: v => fmtN(v) + ' 次' }, { k: 'disc', h: '折扣金額', f: fmtM }, { k: 'gmv', h: '總成交額', f: fmtM }, { k: 'share', h: '佔比', f: v => fmtP(v) }], cp),
+      { note: `總折扣 ${fmtM(sum(cp, 'disc'))}` }); })()}
+  </div>`;
+  const draw = () => {
+    const bs = bucket(state.cur, state.gran.shopTrend || 'day').map(b => ({ label: b.label, a: aggregate(b.days) }));
+    comboChart('cShop', bs.map(b => b.label), [
+      { label: '成交額', data: bs.map(b => b.a.s.gmv), color: 'rgba(120,200,220,.55)', border: '#5bb6cc' },
+      { label: '總營業額', data: bs.map(b => b.a.s.revenue), color: 'rgba(140,150,230,.6)', border: '#7b86d9' }],
+      { label: '全站ROAS', data: bs.map(b => div(b.a.s.revenue, b.a.spend)) });
+  };
+  return { html, draw };
+};
+
+/* ---------- GA4 ---------- */
+Views.ga4 = () => {
+  const A = aggregate(state.cur), P = aggregate(state.prev);
+  const roas = div(A.a.rev, A.spend), roasP = div(P.a.rev, P.spend);
+  const html = `
+  <div class="kpis">
+    ${kpi('工作階段', fmtN(A.a.sessions), A.a.sessions, P.a.sessions, { color: 'var(--blue)' })}
+    ${kpi('加入購物車', fmtN(A.a.atc), A.a.atc, P.a.atc, { color: 'var(--teal)' })}
+    ${kpi('購買', fmtN(A.a.pur), A.a.pur, P.a.pur, { color: 'var(--purple)' })}
+    ${kpi('營收', fmtM(A.a.rev), A.a.rev, P.a.rev, { color: 'var(--pink)' })}
+    ${kpi('廣告花費', fmtM(A.spend), A.spend, P.spend, { color: 'var(--blue)' })}
+    ${kpi('全站 ROAS', fmtX(roas), roas, roasP, { color: 'var(--pos)' })}
+    ${kpi('廣告營收佔比', fmtP(div(A.a.adRev, A.a.rev)), div(A.a.adRev, A.a.rev), div(P.a.adRev, P.a.rev))}
+  </div>
+  <div class="grid2">
+    ${card('📅 每日趨勢', canvas('cGa'), { right: seg('gaTrend') })}
+    ${card('📡 流量來源分佈', canvas('cGaSrc') + `<div class="legend-note">分類說明：廣告 = google/cpc、facebook/cpc、ig/paid；Line推播 = LINE / 推播工具；社群 = facebook、instagram；自然搜尋 = organic；Direct = (direct)/(none)</div>`, { right: seg('gaSrcMode', [['rev', '營收'], ['ses', '流量']]) })}
+  </div>
+  ${card('📅 每日明細', table('tGaDaily', [
+    { k: 'label', h: '日期', l: 1 }, { k: 'sessions', h: '工作階段', f: fmtN }, { k: 'atc', h: '加入購物車', f: fmtN }, { k: 'atcR', h: '加車率', f: v => fmtP(v) }, { k: 'pur', h: '購買', f: fmtN }, { k: 'purR', h: '購買率', f: v => fmtP(v, 2) },
+    { k: 'rev', h: '全站營收', f: fmtM }, { k: 'aov', h: '客單價', f: fmtM }, { k: 'adRev', h: '廣告營收', f: fmtM }, { k: 'adR', h: '廣告營收佔比', f: v => fmtP(v) }, { k: 'dur', h: '平均停留', f: fmtT }, { k: 'bounce', h: '跳出率', f: v => fmtP(v) }],
+    bucket(state.cur, state.gran.gaDaily || 'day').map(b => { const a = aggregate(b.days).a; return { label: b.label, ...a, atcR: div(a.atc, a.sessions), purR: div(a.pur, a.sessions), aov: div(a.rev, a.pur), adR: div(a.adRev, a.rev) }; })), { right: seg('gaDaily') })}
+  ${card('📡 分管道', table('tGaCh', [
+    { k: 'name', h: '管道', l: 1 }, { k: 'ses', h: '工作階段', f: fmtN }, { k: 'pur', h: '購買', f: fmtN }, { k: 'rev', h: '全站營收', f: fmtM }, { k: 'share', h: '營收佔比', f: v => fmtP(v) }, { k: 'dur', h: '平均停留', f: fmtT }, { k: 'bounce', h: '跳出率', f: v => fmtP(v) }],
+    (() => { const ch = CFG.mock.ga4Channels; const ss = Mock.split(A.a.sessions, ch.map(c => ({ w: c.s })), seedKey('chs'), .2); const rs = Mock.split(A.a.rev, ch.map(c => ({ w: c.r })), seedKey('chr'), .25);
+      return ch.map((c, i) => { const r = rng(c.name + state.from); return { name: c.name, ses: ss[i], rev: rs[i], pur: rs[i] / (A.a.rev / A.a.pur), share: rs[i] / A.a.rev, dur: c.dur * (0.85 + r() * .3), bounce: c.b * (0.85 + r() * .3) }; }); })(),
+    { sort: { k: 'ses', dir: -1 } }))}`;
+  const draw = () => {
+    const bs = bucket(state.cur, state.gran.gaTrend || 'day').map(b => ({ label: b.label, a: aggregate(b.days).a }));
+    comboChart('cGa', bs.map(b => b.label), [{ label: '工作階段', data: bs.map(b => b.a.sessions), color: 'rgba(74,127,240,.45)', border: '#4a7ff0' }],
+      { label: '購買率', data: bs.map(b => div(b.a.pur, b.a.sessions)), fmt: v => fmtP(v, 2), tick: v => (v * 100).toFixed(1) + '%' }, { yFmt: fmtN, yTick: v => fmtW(v) });
+    const mode = state.gran.gaSrcMode || 'rev'; const keys = ['廣告', 'Line推播', '社群', '自然搜尋', 'Direct', '其他'];
+    const days = state.cur;
+    mkChart('cGaSrc', { type: 'bar', data: { labels: days.map(d => d.date.slice(5)), datasets: keys.map((k, i) => ({ label: k, data: days.map(d => { const o = mode === 'rev' ? d.ga4.chRev : d.ga4.chSes; const t = Object.values(o).reduce((a, b) => a + b, 0); return o[k] / t; }), backgroundColor: PALETTE[i] })) },
+      options: { maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: c => `${c.dataset.label}：${fmtP(c.raw)}` } } },
+        scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, max: 1, ticks: { callback: v => Math.round(v * 100) + '%' } } } } });
+  };
+  return { html, draw };
+};
+
+/* ---------- 媒體總成效 ---------- */
+Views.media = () => {
+  const A = aggregate(state.cur), P = aggregate(state.prev);
+  const ageRows = demoRows(A.spend, A.pur, A.val, 'age', AGE);
+  const genRows = demoRows(A.spend, A.pur, A.val, 'gen', GENDER());
+  const bars = (rows, color) => `<div class="bar-list">${rows.map(r => `<div class="bar-row"><span>${r.name}</span><div class="track"><div class="fill" style="width:${r.share * 100}%;background:${color}"></div></div><span>${fmtP(r.share)}</span></div>`).join('')}</div>`;
+  const demoCols = [{ k: 'name', h: '分組', l: 1 }, { k: 'spend', h: '花費', f: fmtM }, { k: 'pur', h: '購買', f: fmtN }, { k: 'val', h: '營收', f: fmtM }, { k: 'roas', h: 'ROAS', f: fmtX }, { k: 'cpa', h: 'CPA', f: fmtM }];
+  const mrow = (name, x, ga4) => ({ name, spend: x.spend, imp: x.imp, clk: x.clk, ctr: div(x.clk, x.imp), pur: x.pur, val: x.val, roas: div(x.val, x.spend), cpa: div(x.spend, x.pur), ga4: ga4, ga4roas: div(ga4, x.spend) });
+  const g4m = A.a.adRev * 0.35, g4g = A.a.adRev * 0.65;
+  const html = `
+  <div class="kpis">
+    ${kpi('合計花費', fmtM(A.spend), A.spend, P.spend, { color: 'var(--blue)' })}
+    ${kpi('合計購買', fmtN(A.pur), A.pur, P.pur, { color: 'var(--teal)' })}
+    ${kpi('合計營收', fmtM(A.val), A.val, P.val, { color: 'var(--pink)' })}
+    ${kpi('合計 ROAS', fmtX(div(A.val, A.spend)), div(A.val, A.spend), div(P.val, P.spend), { color: 'var(--pos)' })}
+    ${kpi('合計 CPA', fmtM(div(A.spend, A.pur)), div(A.spend, A.pur), div(P.spend, P.pur), { invert: true })}
+    ${kpi('GA4 廣告營收', fmtM(A.a.adRev), A.a.adRev, P.a.adRev, { alt: 1, color: 'var(--blue)' })}
+    ${kpi('GA4 廣告 ROAS', fmtX(div(A.a.adRev, A.spend)), div(A.a.adRev, A.spend), div(P.a.adRev, P.spend), { alt: 1, color: 'var(--blue)' })}
+  </div>
+  <div class="grid2">
+    ${card('📅 每日花費趨勢（Meta vs Google）', canvas('cMedia'), { right: seg('mediaTrend') })}
+    ${card('💰 花費佔比（媒體）', canvas('cMediaPie'))}
+  </div>
+  ${card('📊 媒體比較', table('tMedia', [
+    { k: 'name', h: '媒體', l: 1 }, { k: 'spend', h: '花費', f: fmtM }, { k: 'imp', h: '曝光', f: fmtN }, { k: 'clk', h: '點擊', f: fmtN }, { k: 'ctr', h: 'CTR', f: v => fmtP(v, 2) }, { k: 'pur', h: '購買', f: fmtN },
+    { k: 'val', h: '營收', f: fmtM }, { k: 'roas', h: 'ROAS', f: fmtX }, { k: 'cpa', h: 'CPA', f: fmtM }, { k: 'ga4', h: 'GA4 廣告營收', f: fmtM }, { k: 'ga4roas', h: 'GA4 廣告 ROAS', f: fmtX }],
+    [mrow('Meta', A.m, g4m), mrow('Google', A.g, g4g)], { total: mrow('合計', { spend: A.spend, imp: A.m.imp + A.g.imp, clk: A.m.clk + A.g.clk, pur: A.pur, val: A.val }, A.a.adRev) }))}
+  <div class="grid-half">
+    ${card('👥 年齡分析（合計）', bars(ageRows, 'var(--blue)') + table('tAge', demoCols.map((c, i) => i ? c : { ...c, h: '年齡層' }), ageRows))}
+    ${card('⚧ 性別分析（合計）', bars(genRows, 'var(--pink)') + table('tGen', demoCols.map((c, i) => i ? c : { ...c, h: '性別' }), genRows))}
+  </div>`;
+  const draw = () => {
+    const bs = bucket(state.cur, state.gran.mediaTrend || 'day').map(b => ({ label: b.label, a: aggregate(b.days) }));
+    comboChart('cMedia', bs.map(b => b.label), [
+      { label: 'Meta', data: bs.map(b => b.a.m.spend), color: 'rgba(74,127,240,.55)', border: '#4a7ff0' },
+      { label: 'Google', data: bs.map(b => b.a.g.spend), color: 'rgba(88,165,92,.5)', border: '#58a55c' }],
+      { label: 'ROAS', data: bs.map(b => div(b.a.val, b.a.spend)) }, { stacked: true });
+    donut('cMediaPie', ['Meta', 'Google'], [A.m.spend, A.g.spend], ['#4a7ff0', '#58a55c']);
+  };
+  return { html, draw };
+};
+
+/* ---------- Meta 成效 ---------- */
+Views.meta = () => {
+  const A = aggregate(state.cur), P = aggregate(state.prev), M = A.m, PM = P.m;
+  const cs = metaCampaigns(A);
+  const cols = [
+    { k: 'name', h: '廣告活動', l: 1, f: (v, r) => r._children ? `<span class="tog" data-tog="tMetaC|${r._id}">${state.filters['tMetaC-open-' + r._id] ? '▼' : '▶'}</span>${v}` : v },
+    { k: 'spend', h: '花費', f: fmtM }, { k: 'share', h: '佔比', f: v => `<span class="share"><i style="width:${Math.max(3, v * 60)}px"></i>${fmtP(v)}</span>` }, { k: 'imp', h: '曝光', f: fmtN }, { k: 'ctr', h: 'CTR', f: v => fmtP(v, 2) },
+    { k: 'clk', h: '連結點擊', f: fmtN }, { k: 'cplc', h: 'CPLC', f: fmtM }, { k: 'atc', h: '加車', f: fmtN }, { k: 'pur', h: '購買', f: fmtN }, { k: 'val', h: '轉換值', f: fmtM }, { k: 'roas', h: 'ROAS', f: fmtX }, { k: 'cpa', h: 'CPA', f: fmtM }, { k: 'ga4roas', h: 'GA4 ROAS', f: fmtX }];
+  const tot = { name: '合計', spend: M.spend, share: 1, imp: M.imp, ctr: div(M.clk, M.imp), clk: M.clk, cplc: div(M.spend, M.clk), atc: M.atc, pur: M.pur, val: M.val, roas: div(M.val, M.spend), cpa: div(M.spend, M.pur), ga4roas: div(A.a.adRev * .35, M.spend) };
+  const html = `
+  <div class="kpis">
+    ${kpi('花費', fmtM(M.spend), M.spend, PM.spend, { color: 'var(--blue)' })}
+    ${kpi('曝光', fmtW(M.imp), M.imp, PM.imp)}
+    ${kpi('連結點擊', fmtN(M.clk), M.clk, PM.clk)}
+    ${kpi('加入購物車', fmtN(M.atc), M.atc, PM.atc, { color: 'var(--teal)' })}
+    ${kpi('購買', fmtN(M.pur), M.pur, PM.pur, { color: 'var(--purple)' })}
+    ${kpi('轉換值', fmtM(M.val), M.val, PM.val, { color: 'var(--pink)' })}
+    ${kpi('ROAS', fmtX(div(M.val, M.spend)), div(M.val, M.spend), div(PM.val, PM.spend), { color: 'var(--pos)' })}
+    ${kpi('CPA（購買）', fmtM(div(M.spend, M.pur)), div(M.spend, M.pur), div(PM.spend, PM.pur), { invert: true })}
+  </div>
+  <div class="grid2">
+    ${card('📅 每日趨勢', canvas('cMeta'), { right: seg('metaMetric', [['spend', '花費'], ['roas', 'ROAS'], ['pur', '購買']]) + seg('metaTrend') })}
+    ${card('📊 Campaign 花費佔比', canvas('cMetaPie'))}
+  </div>
+  ${card('🎯 廣告活動成效', table('tMetaC', cols, cs, { total: tot, sort: { k: 'spend', dir: -1 } }), { note: `${cs.length} 個廣告活動・點 ▶ 展開廣告組合` })}`;
+  const draw = () => {
+    const bs = bucket(state.cur, state.gran.metaTrend || 'day').map(b => ({ label: b.label, a: aggregate(b.days).m }));
+    const mt = state.gran.metaMetric || 'spend';
+    if (mt === 'spend') comboChart('cMeta', bs.map(b => b.label), [{ label: '花費', data: bs.map(b => b.a.spend), color: 'rgba(74,127,240,.55)', border: '#4a7ff0' }], { label: 'ROAS', data: bs.map(b => div(b.a.val, b.a.spend)) });
+    else if (mt === 'roas') comboChart('cMeta', bs.map(b => b.label), [{ label: '轉換值', data: bs.map(b => b.a.val), color: 'rgba(214,51,138,.35)', border: '#d6338a' }], { label: 'ROAS', data: bs.map(b => div(b.a.val, b.a.spend)) });
+    else comboChart('cMeta', bs.map(b => b.label), [{ label: '購買', data: bs.map(b => b.a.pur), color: 'rgba(123,92,214,.45)', border: '#7b5cd6' }], { label: 'CPA', data: bs.map(b => div(b.a.spend, b.a.pur)), fmt: fmtM, tick: v => CFG.currency + v }, { yFmt: fmtN, yTick: fmtN });
+    donut('cMetaPie', cs.map(c => c.name.replace(CFG.brand + '_', '')), cs.map(c => c.spend), PALETTE);
+  };
+  return { html, draw };
+};
+
+/* ---------- Meta 素材 ---------- */
+Views.creative = () => {
+  const A = aggregate(state.cur);
+  const f = state.filters.crCamp || 'all';
+  const rows = creatives(A, f);
+  const thumb = (r) => `<span class="thumb" style="background:linear-gradient(135deg,hsl(${r.hue} 60% 70%),hsl(${(r.hue + 50) % 360} 55% 45%))"></span>`;
+  const html = `
+  ${card('🎨 素材成效', table('tCr', [
+    { k: 'name', h: '廣告名稱', l: 1 }, { k: 'hue', h: '縮圖', l: 1, f: (v, r) => thumb(r) + ` <span class="tag">${r.type}</span>` },
+    { k: 'spend', h: '花費', f: fmtM }, { k: 'imp', h: '曝光', f: fmtN }, { k: 'ctr', h: 'CTR', f: v => fmtP(v, 2) }, { k: 'cplc', h: 'CPLC', f: fmtM },
+    { k: 'atc', h: '加車', f: fmtN }, { k: 'pur', h: '購買', f: fmtN }, { k: 'val', h: '轉換值', f: fmtM }, { k: 'roas', h: 'ROAS', f: fmtX }, { k: 'cpa', h: 'CPA', f: fmtM }], rows),
+    { note: `${rows.length} 筆・點欄位標題可排序`, right: `<select id="crCamp" style="margin-left:auto"><option value="all">所有廣告活動</option>${CFG.mock.metaCampaigns.map(c => `<option ${f === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}</select>` })}`;
+  return { html, draw: () => {} };
+};
+
+/* ---------- Google Ads ---------- */
+Views.google = () => {
+  const A = aggregate(state.cur), P = aggregate(state.prev), G = A.g, PG = P.g;
+  const cs = googleCampaigns(A);
+  const nonPmax = cs.filter(c => !/pmax/i.test(c.name));
+  const sp = sum(nonPmax, 'spend'), pu = sum(nonPmax, 'pur'), va = sum(nonPmax, 'val'), im = sum(nonPmax, 'imp');
+  const ex = r => { const imp = im * r.share * (0.9 + rng(r.name)() * .2), clk = imp * (0.3 + rng(r.name + 'c')() * .08); return { imp, clk, ctr: div(clk, imp) }; };
+  const ageRows = demoRows(sp, pu, va, 'gage', AGE, ex), genRows = demoRows(sp, pu, va, 'ggen', GENDER(), ex);
+  const dcols = n => [{ k: 'name', h: n, l: 1 }, { k: 'spend', h: '花費', f: fmtM }, { k: 'imp', h: '曝光', f: fmtN }, { k: 'clk', h: '點擊', f: fmtN }, { k: 'ctr', h: 'CTR', f: v => fmtP(v, 2) }, { k: 'pur', h: '購買', f: fmtN }, { k: 'val', h: '營收', f: fmtM }, { k: 'cpa', h: 'CPA', f: fmtM }, { k: 'roas', h: 'ROAS', f: fmtX }];
+  const html = `
+  <div class="kpis">
+    ${kpi('花費', fmtM(G.spend), G.spend, PG.spend, { color: 'var(--blue)' })}
+    ${kpi('曝光', fmtW(G.imp), G.imp, PG.imp)}
+    ${kpi('點擊', fmtN(G.clk), G.clk, PG.clk)}
+    ${kpi('CTR', fmtP(div(G.clk, G.imp), 2), div(G.clk, G.imp), div(PG.clk, PG.imp))}
+    ${kpi('購買', fmtN(G.pur), G.pur, PG.pur, { color: 'var(--purple)' })}
+    ${kpi('營收', fmtM(G.val), G.val, PG.val, { color: 'var(--pink)' })}
+    ${kpi('ROAS', fmtX(div(G.val, G.spend)), div(G.val, G.spend), div(PG.val, PG.spend), { color: 'var(--pos)' })}
+    ${kpi('CPA（購買）', fmtM(div(G.spend, G.pur)), div(G.spend, G.pur), div(PG.spend, PG.pur), { invert: true })}
+  </div>
+  <div class="grid2">
+    ${card('📅 每日趨勢', canvas('cG'), { right: seg('gMetric', [['spend', '花費'], ['roas', 'ROAS'], ['pur', '購買']]) + seg('gTrend') })}
+    ${card('📊 廣告活動花費佔比', canvas('cGPie'))}
+  </div>
+  ${card('🎯 廣告活動成效', table('tGC', [
+    { k: 'name', h: '廣告活動', l: 1 }, { k: 'spend', h: '花費', f: fmtM }, { k: 'share', h: '佔比', f: v => `<span class="share"><i style="width:${Math.max(3, v * 60)}px"></i>${fmtP(v)}</span>` }, { k: 'imp', h: '曝光', f: fmtN }, { k: 'clk', h: '點擊', f: fmtN },
+    { k: 'ctr', h: 'CTR', f: v => fmtP(v, 2) }, { k: 'pur', h: '購買', f: fmtN }, { k: 'val', h: '營收', f: fmtM }, { k: 'roas', h: 'ROAS', f: fmtX }, { k: 'cpa', h: 'CPA', f: fmtM }, { k: 'ga4roas', h: 'GA4 ROAS', f: fmtX }],
+    cs, { sort: { k: 'spend', dir: -1 }, total: { name: '合計', spend: G.spend, share: 1, imp: G.imp, clk: G.clk, ctr: div(G.clk, G.imp), pur: G.pur, val: G.val, roas: div(G.val, G.spend), cpa: div(G.spend, G.pur), ga4roas: div(A.a.adRev * .65, G.spend) } }), { note: `${cs.length} 個廣告活動` })}
+  <div class="warn">⚠️ Performance Max 廣告活動不支援年齡／性別維度，以下數字不含 PMax，故加總會低於整體花費。</div>
+  <div class="grid-half">
+    ${card('👥 年齡分析', table('tGAge', dcols('年齡層'), ageRows))}
+    ${card('⚧ 性別分析', table('tGGen', dcols('性別'), genRows))}
+  </div>`;
+  const draw = () => {
+    const bs = bucket(state.cur, state.gran.gTrend || 'day').map(b => ({ label: b.label, a: aggregate(b.days).g }));
+    const mt = state.gran.gMetric || 'spend';
+    if (mt === 'spend') comboChart('cG', bs.map(b => b.label), [{ label: '花費', data: bs.map(b => b.a.spend), color: 'rgba(88,165,92,.5)', border: '#58a55c' }], { label: 'ROAS', data: bs.map(b => div(b.a.val, b.a.spend)) });
+    else if (mt === 'roas') comboChart('cG', bs.map(b => b.label), [{ label: '營收', data: bs.map(b => b.a.val), color: 'rgba(214,51,138,.35)', border: '#d6338a' }], { label: 'ROAS', data: bs.map(b => div(b.a.val, b.a.spend)) });
+    else comboChart('cG', bs.map(b => b.label), [{ label: '購買', data: bs.map(b => b.a.pur), color: 'rgba(123,92,214,.45)', border: '#7b5cd6' }], { label: 'CPA', data: bs.map(b => div(b.a.spend, b.a.pur)), fmt: fmtM, tick: v => CFG.currency + v }, { yFmt: fmtN, yTick: fmtN });
+    donut('cGPie', cs.map(c => c.name), cs.map(c => c.spend), PALETTE.slice(1).concat(PALETTE[0]));
+  };
+  return { html, draw };
+};
+
+/* =====================================================================
+ *  渲染與事件
+ * ===================================================================== */
+function render() {
+  const v = Views[state.tab]();
+  document.getElementById('main').innerHTML = v.html;
+  v.draw();
+}
+async function loadData() {
+  const main = document.getElementById('main'); main.classList.add('loading');
+  document.getElementById('status').textContent = '⏳ 讀取中…';
+  const n = daysBetween(state.from, state.to);
+  const [cur, prev] = await Promise.all([DataSource.load(state.from, state.to), DataSource.load(addDays(state.from, -n), addDays(state.from, -1))]);
+  state.cur = cur; state.prev = prev;
+  document.getElementById('status').textContent = `✓ 完成・${CFG.mock.metaCampaigns.length + CFG.mock.googleCampaigns.length} campaigns・${CFG.mock.creatives.length} 素材・比較區間 ${addDays(state.from, -n)} ~ ${addDays(state.from, -1)}`;
+  main.classList.remove('loading');
+  render();
+}
+function setPreset(p) {
+  const y = addDays(TODAY, -1);
+  if (p === 'today') { state.from = state.to = TODAY; }
+  else if (p === 'yesterday') { state.from = state.to = y; }
+  else if (p === 'month') { state.from = TODAY.slice(0, 8) + '01'; state.to = TODAY === state.from ? TODAY : y; }
+  else { state.from = addDays(TODAY, -Number(p)); state.to = y; }
+  document.getElementById('dFrom').value = state.from; document.getElementById('dTo').value = state.to;
+  document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', b.dataset.preset === p));
+}
+
+function init() {
+  document.title = `${CFG.brandDisplay} 成效儀表板`;
+  document.getElementById('brandName').textContent = CFG.brandDisplay;
+  document.getElementById('accountLine').textContent = `帳戶 ID：${CFG.accountId} · ${CFG.currencyCode}`;
+  document.getElementById('lastUpdate').textContent = TODAY;
+  document.getElementById('demoBadge').classList.toggle('hidden', !CFG.showDemoBadge);
+  document.documentElement.style.setProperty('--accent', CFG.accent);
+  document.documentElement.style.setProperty('--accent-dark', CFG.accentDark);
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = CFG.tabs.map(t => `<button data-tab="${t.id}" class="${t.id === state.tab ? 'on' : ''}">${t.label}</button>`).join('');
+  nav.onclick = e => { const b = e.target.closest('[data-tab]'); if (!b) return; state.tab = b.dataset.tab; nav.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render(); };
+  document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => { setPreset(b.dataset.preset); loadData(); });
+  document.getElementById('dFrom').onchange = e => { state.from = e.target.value; document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('on')); };
+  document.getElementById('dTo').onchange = e => { state.to = e.target.value; document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('on')); };
+  document.getElementById('btnRefresh').onclick = () => { if (state.from > state.to) { alert('起始日不能晚於結束日'); return; } loadData(); };
+
+  const main = document.getElementById('main');
+  main.addEventListener('click', e => {
+    const sb = e.target.closest('[data-seg] button');
+    if (sb) { const id = sb.parentElement.dataset.seg; if (id === 'prodCat') state.filters.prodCat = sb.dataset.v; else state.gran[id] = sb.dataset.v; render(); return; }
+    const tg = e.target.closest('[data-tog]');
+    if (tg) { const [tid, rid] = tg.dataset.tog.split('|'); const k = `${tid}-open-${rid}`; state.filters[k] = !state.filters[k]; refreshTable(tid); return; }
+    const th = e.target.closest('th[data-sort]');
+    if (th) { const [tid, k] = th.dataset.sort.split('|'); const t = tables[tid]; t.sort = t.sort && t.sort.k === k ? { k, dir: -t.sort.dir } : { k, dir: -1 }; refreshTable(tid); }
+  });
+  main.addEventListener('change', e => { if (e.target.id === 'crCamp') { state.filters.crCamp = e.target.value; render(); } });
+
+  setPreset(CFG.defaultPreset || '7');
+  loadData();
+}
+init();
+</script>
+</body>
+</html>

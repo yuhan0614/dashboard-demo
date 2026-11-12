@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>遊戲成效儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+/* =====================================================================
+ *  遊戲客戶設定檔 — 換客戶時只需要改這個檔案
+ *  （正式版的 token 一律放後端環境變數，這裡絕對不能放任何憑證）
+ * ===================================================================== */
+window.GAME_CONFIG = {
+  code: '',                        // 活動命名前綴（可留空）
+  gameName: '',                    // 左上角顯示名稱（留空 = 不顯示）
+  gameSub: '',
+  currency: 'NT$',
+  accent: '#7b5cd6', accentDark: '#6446c2',
+  showDemoBadge: true,             // 接上真資料後改 false
+  today: null,                     // null = 系統日期；demo 想固定日期可填 '2026-11-13'
+
+  preregStart: '2026-08-01',       // 開放預約日
+  launchDate: '2026-10-15',        // 上市日（若在未來，「上市後」分頁會顯示倒數）
+  milestones: [100000, 200000, 300000, 400000],   // 預約里程碑
+
+  apiBase: '',                     // 正式版後端網址
+
+  // 各階段分頁（可刪減 / 調整順序）
+  tabs: {
+    prereg: [
+      { id: 'pOverview', label: '🎯 預約總覽' },
+      { id: 'pMedia',    label: '🌐 媒體成效' },
+      { id: 'creative',  label: '🎨 素材' },
+      { id: 'ga4',       label: '📈 GA4 官網' },
+    ],
+    launch: [
+      { id: 'lOverview', label: '🚀 上市總覽' },
+      { id: 'af',        label: '📲 AppsFlyer 歸因' },
+      { id: 'lMedia',    label: '🌐 媒體成效' },
+      { id: 'creative',  label: '🎨 素材' },
+      { id: 'ops',       label: '🎮 營運數據' },
+      { id: 'redeem',    label: '🔁 預約轉換' },
+      { id: 'cohort',    label: '🧊 同期留存' },
+      { id: 'ga4',       label: '📈 GA4 官網' },
+    ],
+    all: [
+      { id: 'timeline',  label: '📈 全期間回收' },
+    ],
+  },
+
+  // 媒體（id 不要改，name / color 可改；不需要的媒體直接整行刪掉）
+  media: [
+    { id: 'meta',   name: 'Meta',             color: '#4a7ff0' },
+    { id: 'google', name: 'Google / YouTube', color: '#58a55c', appPrereg: true },  // appPrereg：能回報 Google Play 預註冊
+    { id: 'tiktok', name: 'TikTok',           color: '#222222' },
+  ],
+
+  // 預約管道：type = web（網頁預約，媒體可用像素追蹤）/ app（商店預約）；plat 填 ios / android 表示只有該平台會有
+  preregChannels: [
+    { name: '網頁預約',           type: 'web', w: 48, redeem: .36 },
+    { name: 'Google Play 預註冊', type: 'app', w: 36, redeem: .52, plat: 'android' },
+    { name: 'App Store 預購',     type: 'app', w: 18, redeem: .49, plat: 'ios' },
+  ],
+
+  campaigns: {
+    prereg: [
+      { media: 'meta', name: '預約_CPA_廣泛', w: 5, eff: 1.1, adsets: ['Advantage+ 廣泛', '興趣_RPG手遊', '興趣_動漫'] },
+      { media: 'meta', name: '預約_CPA_類似受眾', w: 3, eff: 1.2, adsets: ['LAL_前作玩家1%', 'LAL_官網預約3%'] },
+      { media: 'meta', name: '預約_影片觀看_預熱', w: 1.5, eff: .3, adsets: ['廣泛_18-34'] },
+      { media: 'google', name: '預約_YouTube_TrueView', w: 4, eff: .8 },
+      { media: 'google', name: '預約_Demand Gen', w: 3, eff: 1.1 },
+      { media: 'google', name: '預約_SEM_品牌字', w: 1, eff: 2.2 },
+      { media: 'tiktok', name: '預約_TikTok_轉換', w: 3, eff: 1 },
+      { media: 'tiktok', name: '預約_TikTok_Spark Ads', w: 1, eff: 1 },
+    ],
+    launch: [
+      { media: 'meta', name: 'AAA_安裝_Android', w: 4, eff: 1.1, adsets: ['Advantage+ App', '興趣_RPG手遊'] },
+      { media: 'meta', name: 'AAA_安裝_iOS', w: 2.5, eff: .8, adsets: ['Advantage+ App_iOS'] },
+      { media: 'meta', name: 'AEO_首儲', w: 2, eff: .7, adsets: ['LAL_付費玩家1%', '廣泛'] },
+      { media: 'meta', name: 'VO_價值優化', w: 1, eff: .5, adsets: ['廣泛_VO'] },
+      { media: 'google', name: 'ACi_安裝', w: 5, eff: 1.2 },
+      { media: 'google', name: 'ACe_首儲事件', w: 2.5, eff: .6 },
+      { media: 'google', name: 'SEM_品牌字', w: .8, eff: 1.8 },
+      { media: 'tiktok', name: 'TikTok_安裝', w: 3, eff: 1.1 },
+      { media: 'tiktok', name: 'TikTok_首儲', w: 1.2, eff: .6 },
+    ],
+  },
+
+  creatives: [
+    { phase: 'prereg', media: 'meta', name: '預約_主視覺CG_30s', type: '影片', w: 4 },
+    { phase: 'prereg', media: 'meta', name: '預約_角色介紹_艾琳', type: '影片', w: 3 },
+    { phase: 'prereg', media: 'meta', name: '預約_里程碑獎勵', type: '圖像', w: 2 },
+    { phase: 'prereg', media: 'meta', name: '預約_限定SSR角色[輪播]', type: '輪播', w: 2 },
+    { phase: 'prereg', media: 'google', name: '預約_YT_前導PV_60s', type: '影片', w: 4 },
+    { phase: 'prereg', media: 'google', name: '預約_YT_實機玩法_15s', type: '影片', w: 3 },
+    { phase: 'prereg', media: 'google', name: '預約_DemandGen_角色圖', type: '圖像', w: 2 },
+    { phase: 'prereg', media: 'tiktok', name: '預約_TT_KOL試玩', type: '影片', w: 3 },
+    { phase: 'prereg', media: 'tiktok', name: '預約_TT_抽卡實錄', type: '影片', w: 2 },
+    { phase: 'launch', media: 'meta', name: '上市_正式上線CG', type: '影片', w: 4 },
+    { phase: 'launch', media: 'meta', name: '上市_首抽十連免費', type: '圖像', w: 3 },
+    { phase: 'launch', media: 'meta', name: '上市_實機戰鬥_9x16', type: '影片', w: 3 },
+    { phase: 'launch', media: 'meta', name: '上市_玩家好評[輪播]', type: '輪播', w: 1.5 },
+    { phase: 'launch', media: 'meta', name: '上市_首儲禮包', type: '圖像', w: 1.5 },
+    { phase: 'launch', media: 'google', name: '上市_UAC_影片A', type: '影片', w: 4 },
+    { phase: 'launch', media: 'google', name: '上市_UAC_影片B', type: '影片', w: 3 },
+    { phase: 'launch', media: 'google', name: '上市_UAC_圖像組', type: '圖像', w: 2 },
+    { phase: 'launch', media: 'tiktok', name: '上市_TT_KOL開服首日', type: '影片', w: 3 },
+    { phase: 'launch', media: 'tiktok', name: '上市_TT_歐皇抽卡', type: '影片', w: 2.5 },
+    { phase: 'launch', media: 'tiktok', name: '上市_TT_玩家二創', type: '影片', w: 1.5 },
+  ],
+
+  // 儲值品項（客戶後台）
+  packs: [
+    { name: '首儲禮包', price: 30, w: 30 },
+    { name: '月卡', price: 150, w: 26 },
+    { name: '成長基金', price: 330, w: 12 },
+    { name: '鑽石 x 680', price: 330, w: 10 },
+    { name: '鑽石 x 1980', price: 990, w: 9 },
+    { name: '限定角色禮包', price: 1490, w: 6 },
+    { name: '鑽石 x 6480', price: 3290, w: 4 },
+    { name: '戰令 進階版', price: 390, w: 8 },
+  ],
+
+  // 營運活動（會讓當天營收、活躍上升）
+  liveEvents: [
+    { date: '2026-10-29', name: '首次改版：新角色池', f: 1.35, days: 4 },
+    { date: '2026-11-11', name: '雙11 儲值回饋', f: 1.5, days: 2 },
+  ],
+
+  /* ---------- 以下為 Mock 假資料參數（接真資料後可忽略） ---------- */
+  mock: {
+    preregBase: 2400, preregEventDay: 35,   // 預約期第 35 天有代言人公布
+    payRate: .045,
+    organicBase: 2200,
+    redeemRate: .42,
+    plats: {
+      ios:     { vol: .34, spend: .4, cpi: 1.6, arp: 1.7, ret: 1.08, cpa: 1.3 },
+      android: { vol: .66, spend: .6, cpi: 1,   arp: 1,   ret: 1,    cpa: 1 },
+    },
+    media: {
+      meta:   { preregSpend: 42000, launchSpend: 150000, cpm: 120, ctr: .014, v3: .32, thru: .28, cpa: 32, cpi: 92, over: 1.14, q: 1.05 },
+      google: { preregSpend: 36000, launchSpend: 130000, cpm: 75,  ctr: .009, v3: .4,  thru: .22, cpa: 38, cpi: 78, over: 1.06, q: 1.0 },
+      tiktok: { preregSpend: 18000, launchSpend: 60000,  cpm: 60,  ctr: .011, v3: .45, thru: .15, cpa: 27, cpi: 64, over: 1.27, q: .72 },
+    },
+    utm: [
+      { name: 'google / cpc', w: 22 }, { name: 'facebook / paid', w: 20 }, { name: '(direct) / (none)', w: 18 },
+      { name: 'youtube / paid', w: 12 }, { name: 'tiktok / paid', w: 9 }, { name: 'google / organic', w: 8 },
+      { name: 'line / oa', w: 5 }, { name: 'discord / referral', w: 3 }, { name: 'bahamut / referral', w: 3 },
+    ],
+  },
+};
+
+</script>
+<style>
+:root{
+  --accent:#7b5cd6; --accent-dark:#6446c2;
+  --bg:#f4f5f7; --card:#fff; --ink:#1f2328; --muted:#6b7280; --line:#e5e7eb;
+  --pos:#2e9e4f; --neg:#d64545;
+  --blue:#3b6fd8; --teal:#2fb5b0; --pink:#d6338a; --orange:#e8892d; --purple:#7b5cd6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;font-size:14px}
+header{background:#0f0f10;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:18px}
+.brand{font-weight:800;letter-spacing:.3em;font-size:20px;padding-right:18px;border-right:1px solid #444;line-height:1.1}
+.brand small{display:block;font-size:11px;letter-spacing:.1em;color:#aaa;font-weight:500;margin-top:3px}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .sub{font-size:12px;color:#aaa;margin-top:2px}
+header .right{margin-left:auto;text-align:right;font-size:12px;color:#ccc;line-height:1.7}
+.demo-badge{display:inline-block;background:#f5b400;color:#111;font-size:11px;font-weight:700;padding:1px 8px;border-radius:10px;margin-left:8px;vertical-align:2px}
+.phase-bar{background:#1b1b1f;padding:0 20px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.phase-bar button{background:none;border:0;color:#bbb;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;font-family:inherit}
+.phase-bar button.on{color:#fff;border-bottom-color:var(--accent)}
+.phase-bar button:disabled{opacity:.4;cursor:not-allowed}
+.phase-bar .info{margin-left:auto;color:#ddd;font-size:12px;padding:8px 0}
+.phase-bar .info b{color:#fff}
+.toolbar{background:#fff;padding:12px 20px 6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pill{border:1px solid #d6d9de;background:#fff;border-radius:16px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--ink);font-family:inherit}
+.pill.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.toolbar input[type=date]{border:1px solid #d6d9de;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit}
+.btn-go{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;font-size:13px}
+.btn-go:hover{background:var(--accent-dark)}
+.plat{margin-left:auto;display:flex;gap:4px;align-items:center;font-size:12px;color:var(--muted)}
+.status{background:#fff;padding:0 20px 10px;font-size:12px;color:var(--pos)}
+nav{background:#fff;border-bottom:1px solid var(--line);padding:0 20px;display:flex;gap:4px;overflow-x:auto;position:sticky;top:0;z-index:5}
+nav button{border:0;background:none;padding:12px 16px;font-size:14px;cursor:pointer;color:#555;border-bottom:3px solid transparent;white-space:nowrap;font-family:inherit}
+nav button.on{color:var(--accent-dark);border-bottom-color:var(--accent);font-weight:700}
+main{padding:18px 20px 40px;max-width:1500px;margin:0 auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border-radius:12px;padding:14px 14px 12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi.alt{background:#f1edfc}
+.kpi .l{font-size:12px;color:#444;margin-bottom:6px}
+.kpi .l .src{font-size:10px;color:#999;margin-left:4px}
+.kpi .v{font-size:20px;font-weight:700;overflow-wrap:anywhere;line-height:1.25}
+.kpi .d{font-size:12px;margin-top:4px}
+.kpi .x{font-size:11px;color:var(--muted);margin-top:2px}
+.up{color:var(--pos)}.down{color:var(--neg)}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+.grid-half{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:16px;min-width:0}
+.grid2 .card,.grid-half .card{margin-bottom:0}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.card-h h3{margin:0;font-size:15px}
+.card-h .note{font-size:12px;color:var(--muted)}
+.card-h .rt{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:flex;gap:4px}
+.seg button{border:1px solid #d6d9de;background:#fff;border-radius:14px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chart{position:relative;height:300px}
+.chart.sm{height:250px}
+.tbl-wrap{overflow-x:auto;max-height:540px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:#f7f8fa;font-weight:600;color:#444;text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none;z-index:1}
+th:first-child,td:first-child{text-align:left}
+th.l,td.l{text-align:left}
+th .arr{color:#aaa;font-size:10px;margin-left:3px}
+td{padding:8px 10px;border-bottom:1px solid #f0f1f3;text-align:right;white-space:nowrap}
+tr.total td{font-weight:700;background:#fafbfc}
+tr.child td{background:#fbfaff;font-size:12px;color:#444}
+tr.child td:first-child{padding-left:30px}
+.tog{cursor:pointer;color:#999;margin-right:6px;font-size:10px;display:inline-block;width:10px}
+.share{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.share i{display:inline-block;height:6px;border-radius:3px;background:var(--accent)}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:#eef1f5;color:#555;margin-right:6px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.thumb{width:44px;height:44px;border-radius:6px;display:inline-block;vertical-align:middle;position:relative}
+.thumb.vid::after{content:"▶";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;text-shadow:0 0 4px rgba(0,0,0,.5)}
+.gap-pos{color:var(--orange);font-weight:600}
+.warn{background:#fff7e6;border:1px solid #ffe2a8;color:#8a5a00;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:16px;line-height:1.6}
+.info-box{background:#f1edfc;border:1px solid #dcd2f7;color:#4a3596;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:16px;line-height:1.6}
+select{border:1px solid #d6d9de;border-radius:8px;padding:5px 10px;font-family:inherit;font-size:13px}
+.legend-note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+/* 里程碑 */
+.ms{position:relative;margin:30px 8px 34px}
+.ms .track{height:14px;background:#eceaf5;border-radius:7px;overflow:hidden}
+.ms .fill{height:100%;background:linear-gradient(90deg,#9b83ea,var(--accent));border-radius:7px}
+.ms .mk{position:absolute;top:-24px;transform:translateX(-50%);text-align:center;font-size:11px;color:#666;white-space:nowrap}
+.ms .mk::after{content:"";display:block;width:2px;height:22px;background:#c9c2e4;margin:3px auto 0}
+.ms .mk.hit{color:var(--accent-dark);font-weight:700}
+.ms .mk.hit::after{background:var(--accent)}
+.ms .now{position:absolute;top:22px;transform:translateX(-50%);font-size:12px;font-weight:700;color:var(--accent-dark);white-space:nowrap}
+.ms-sum{display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:#444}
+.ms-sum b{font-size:16px;color:var(--ink)}
+/* 漏斗 */
+.funnel{display:flex;flex-direction:column;gap:10px}
+.fn-row{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:10px;font-size:13px}
+.fn-bar{height:30px;background:linear-gradient(90deg,#9b83ea,var(--accent));border-radius:6px;color:#fff;font-size:12px;display:flex;align-items:center;padding-left:10px;min-width:60px}
+.fn-rate{font-size:12px;color:var(--muted)}
+/* 熱圖 */
+.heat td.c{font-variant-numeric:tabular-nums;min-width:62px}
+.heat td.na{color:#ccc}
+.hidden{display:none}
+.loading{opacity:.4;pointer-events:none;transition:opacity .2s}
+.empty{padding:60px 20px;text-align:center;color:var(--muted);font-size:15px}
+@media (max-width:900px){
+  .grid2,.grid-half{grid-template-columns:1fr}
+  header{flex-wrap:wrap;padding:12px 16px}
+  header .right{margin-left:0;text-align:left}
+  .toolbar,.status,nav,.phase-bar{padding-left:16px;padding-right:16px}
+  .phase-bar .info{margin-left:0;width:100%}
+  .plat{margin-left:0}
+  main{padding:14px 16px 30px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi .v{font-size:18px}
+  .fn-row{grid-template-columns:80px 1fr 70px}
+}
+@media (max-width:640px){
+  header{gap:6px 12px;padding:10px 12px}
+  header h1{font-size:15px}
+  header .sub{display:none}
+  header .right{display:flex;gap:12px;width:100%;font-size:11px;line-height:1.4}
+  .brand{font-size:16px;padding-right:12px}
+  .phase-bar{padding:0 8px;gap:0}
+  .phase-bar button{padding:10px 10px;font-size:13px}
+  .phase-bar .info{font-size:11px;padding:2px 4px 8px;line-height:1.6}
+  .toolbar{gap:6px;padding:10px 12px 6px}
+  .pill{padding:5px 11px;font-size:12px}
+  #presets{width:100%}
+  .toolbar input[type=date]{flex:1;min-width:0;padding:5px 6px;font-size:12px}
+  .btn-go{padding:7px 12px;font-size:12px}
+  .status{padding:0 12px 8px;font-size:11px}
+  nav{padding:0 4px}
+  nav button{padding:11px 11px;font-size:13px}
+  main{padding:12px 10px 30px}
+  .kpis{gap:8px;margin-bottom:12px}
+  .kpi{padding:11px 11px 10px;border-radius:10px}
+  .kpi .l{font-size:11px}
+  .kpi .v{font-size:17px}
+  .kpi .x{font-size:10px}
+  .grid2,.grid-half{gap:12px;margin-bottom:12px}
+  .card{padding:14px 12px;border-radius:10px;margin-bottom:12px}
+  .card-h{gap:8px}
+  .card-h h3{font-size:14px}
+  .chart{height:240px}
+  .chart.sm{height:220px}
+  table{font-size:12px}
+  th,td{padding:7px 8px}
+  .tbl-wrap th:first-child,.tbl-wrap td:first-child{position:sticky;left:0;z-index:2;white-space:normal;min-width:96px;max-width:150px;box-shadow:1px 0 0 var(--line)}
+  .tbl-wrap td:first-child{background:#fff}
+  .tbl-wrap th:first-child{z-index:3}
+  tr.total td:first-child{background:#fafbfc}
+  tr.child td:first-child{background:#fbfaff;padding-left:14px}
+  .thumb{width:34px;height:34px}
+  .ms{margin:28px 4px 32px}
+  .ms .mk{font-size:10px}
+  .ms-sum{gap:6px 14px;font-size:12px}
+  .ms-sum b{font-size:14px}
+  .fn-row{grid-template-columns:72px 1fr 64px;font-size:12px}
+  .bar-row{grid-template-columns:56px 1fr 46px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand" id="brandName">GAME<small id="brandSub"></small></div>
+  <div>
+    <h1>遊戲成效儀表板<span class="demo-badge" id="demoBadge">DEMO 資料</span></h1>
+    <div class="sub">資料來源：Meta · Google Ads · TikTok · AppsFlyer · GA4 · 客戶後台</div>
+  </div>
+  <div class="right"><div>← 回總覽</div><div>資料更新至：<span id="lastUpdate"></span></div></div>
+</header>
+
+<div class="phase-bar" id="phaseBar"></div>
+
+<div class="toolbar">
+  <span id="presets" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+  <input type="date" id="dFrom"> 至 <input type="date" id="dTo">
+  <button class="btn-go" id="btnRefresh">⟳ 更新資料</button>
+  <div class="plat">平台
+    <div class="seg" id="platSeg"><button data-v="all" class="on">全部</button><button data-v="ios">iOS</button><button data-v="android">Android</button></div>
+  </div>
+</div>
+<div class="status" id="status"></div>
+
+<nav id="tabs"></nav>
+<main id="main"></main>
+
+<script>
+/* =====================================================================
+ *  遊戲成效儀表板 — 可重複套用的模板
+ *  階段：預約期 / 上市後 / 全期間；客戶設定在 config.js
+ *  資料層在 DataSource（目前為 mock），正式版改打後端 API（token 只放後端）
+ * ===================================================================== */
+const CFG = window.GAME_CONFIG;
+const MEDIA = CFG.media, MIDS = MEDIA.map(m => m.id);
+
+/* ---------- 格式化 ---------- */
+const fmtN = n => (isFinite(n) ? Math.round(n) : 0).toLocaleString('en-US');
+const fmtM = n => isFinite(n) ? CFG.currency + fmtN(n) : '—';
+const fmtM1 = n => isFinite(n) ? CFG.currency + n.toFixed(1) : '—';
+const fmtX = n => (isFinite(n) && n > 0) ? n.toFixed(2) + 'x' : '—';
+const fmtPctX = n => isFinite(n) ? (n * 100).toFixed(1) + '%' : '—';
+const fmtP = (n, d = 1) => isFinite(n) ? (n * 100).toFixed(d) + '%' : '—';
+const fmtW = n => n >= 1e4 ? (n / 1e4).toFixed(1) + '萬' : fmtN(n);
+const fmtT = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+const div = (a, b) => b ? a / b : NaN;
+const sum = (arr, f) => arr.reduce((s, r) => s + (typeof f === 'function' ? f(r) : r[f] || 0), 0);
+const iso = d => d.toISOString().slice(0, 10);
+const addDays = (ds, n) => { const d = new Date(ds + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 864e5) + 1;
+const mName = id => (MEDIA.find(m => m.id === id) || { name: id === 'organic' ? '自然 / 預約兌換' : id }).name;
+const mColor = id => (MEDIA.find(m => m.id === id) || { color: '#9aa3ad' }).color;
+
+function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let a = hash(seed); return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function deepSum(a, b) {
+  if (a == null) return b; if (b == null) return a;
+  if (typeof a === 'number') return a + b;
+  if (Array.isArray(a)) return a.map((x, i) => deepSum(x, b[i]));
+  if (typeof a === 'object') { const o = {}; for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) o[k] = deepSum(a[k], b[k]); return o; }
+  return a;
+}
+
+const TODAY = CFG.today || (() => { const d = new Date(); return iso(new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))); })();
+const DATA_END = addDays(TODAY, -1);
+const LAUNCHED = CFG.launchDate <= DATA_END;
+const PREREG_END = LAUNCHED ? addDays(CFG.launchDate, -1) : DATA_END;
+const AGES = [0, 1, 3, 7, 14, 30];
+
+/* =====================================================================
+ *  Mock 模擬器：從開放預約一路模擬到昨天（分 iOS / Android）
+ * ===================================================================== */
+const Mock = (() => {
+  const S = CFG.mock, PL = S.plats, PLATS = Object.keys(PL);
+  const ret = (a, P, q) => a === 0 ? 1 : Math.min(1, 0.43 * Math.pow(a, -0.47) * P.ret * q);
+  const arpdau = a => a === 0 ? 6 : 13;
+  const evF = ds => { let f = 1; for (const e of CFG.liveEvents || []) { const k = daysBetween(e.date, ds) - 1; if (k >= 0 && k < (e.days || 1)) f = Math.max(f, e.f); } return f; };
+  const out = {};
+  const cumRegs = Object.fromEntries(PLATS.map(p => [p, 0]));
+  const preregLen = daysBetween(CFG.preregStart, CFG.launchDate) - 1;
+
+  // ---------- 預約期 ----------
+  for (let d = CFG.preregStart; d <= PREREG_END; d = addDays(d, 1)) {
+    const r = rng('p' + d), n = (v = .3) => 1 - v / 2 + r() * v;
+    const t = daysBetween(CFG.preregStart, d) - 1, u = preregLen - t - 1;
+    const shape = 1 + 4 * Math.exp(-t / 3) + 2.2 * Math.exp(-((t - S.preregEventDay) ** 2) / 6) + 3 * Math.exp(-u / 4);
+    const regsAll = S.preregBase * shape * n(.3), spendF = Math.sqrt(shape);
+    const day = { date: d, phase: 'prereg' };
+    for (const p of PLATS) {
+      const P = PL[p], regs = regsAll * P.vol, media = {};
+      const chs = CFG.preregChannels.filter(c => !c.plat || c.plat === p);
+      const W = sum(chs, c => c.w * (0.85 + r() * .3));
+      const ch = {}; let acc = 0; chs.forEach(c => { ch[c.name] = regs * c.w * (0.85 + r() * .3) / W; acc += ch[c.name]; });
+      for (const k in ch) ch[k] *= regs / acc;
+      const web = sum(chs.filter(c => c.type === 'web'), c => ch[c.name]);
+      const gp = sum(chs.filter(c => c.type === 'app' && c.plat === 'android'), c => ch[c.name]);
+      const webRep = web * (1.05 + r() * .25);
+      const mw = MIDS.map(id => S.media[id].preregSpend / S.media[id].cpa * n(.35)), mwT = mw.reduce((a, b) => a + b, 0);
+      MIDS.forEach((id, i) => {
+        const M = S.media[id], cfgM = MEDIA[i]; const spend = M.preregSpend * spendF * n(.3) * P.spend;
+        const imp = spend * 1000 / (M.cpm * n(.3)), clk = imp * M.ctr * n(.3), v3 = imp * M.v3 * n(.2);
+        const webConv = webRep * mw[i] / mwT, appConv = cfgM.appPrereg ? gp * .45 * n(.2) : 0;
+        media[id] = { spend, imp, clk, v3, thru: v3 * M.thru * n(.2), webConv, appConv, conv: webConv + appConv };
+      });
+      const done = web, btn = done / (0.55 * n(.1)), pv = btn / (0.34 * n(.1)), sessions = pv / (0.6 * n(.1));
+      cumRegs[p] += regs;
+      day[p] = { regs, ch, media, cumRegs: cumRegs[p], ga: { sessions, pv, btn, done, dur: 150 * n(.3) * sessions, bounce: .35 * n(.3) * sessions } };
+    }
+    out[d] = day;
+  }
+
+  // ---------- 上市後 ----------
+  if (LAUNCHED) {
+    const hist = Object.fromEntries(PLATS.map(p => [p, []]));
+    const preTotal = { ...cumRegs };
+    const srcQ = { organic: 1.3, ...Object.fromEntries(MIDS.map(id => [id, S.media[id].q])) };
+    for (let d = CFG.launchDate; d <= DATA_END; d = addDays(d, 1)) {
+      const r = rng('l' + d), n = (v = .3) => 1 - v / 2 + r() * v;
+      const t = daysBetween(CFG.launchDate, d) - 1, decay = 0.45 + 0.55 * Math.exp(-t / 9), ev = evF(d);
+      const day = { date: d, phase: 'launch' };
+      for (const p of PLATS) {
+        const P = PL[p], media = {}, inst = {}, rep = {};
+        for (const id of MIDS) {
+          const M = S.media[id]; const spend = M.launchSpend * decay * Math.sqrt(ev) * n(.3) * P.spend;
+          const imp = spend * 1000 / (M.cpm * 1.3 * n(.3)), clk = imp * M.ctr * 1.2 * n(.3), v3 = imp * M.v3 * n(.2);
+          media[id] = { spend, imp, clk, v3, thru: v3 * M.thru * n(.2) };
+          inst[id] = spend / (M.cpi * P.cpi * n(.3)); rep[id] = inst[id] * M.over * n(.1);
+        }
+        const redeem = preTotal[p] * S.redeemRate * (Math.exp(-t / 3.5) - Math.exp(-(t + 1) / 3.5));
+        inst.organic = redeem + S.organicBase * P.vol * decay * ev * n(.3);
+        const q = 0.85 + r() * .3;
+        hist[p].push({ date: d, inst, q, media });
+        let dau = 0, rev = 0, mau = 0;
+        hist[p].forEach((c, k) => {
+          const a = t - k, tot = sum(Object.values(c.inst), x => x), rk = ret(a, P, c.q);
+          dau += tot * rk; mau += tot * (a < 30 ? 1 : Math.min(1, 3 * ret(a - 29, P, c.q)));
+          for (const s in c.inst) rev += c.inst[s] * srcQ[s] * rk * arpdau(a) * P.arp * ev;
+        });
+        const newU = sum(Object.values(inst), x => x);
+        day[p] = { media, inst, rep, redeem, newU, roles: newU * 0.83 * n(.05), dau, mau, rev: rev * n(.12), payers: dau * S.payRate * n(.2) * Math.sqrt(ev),
+          ga: { sessions: newU * 0.55 * n(.3), pv: newU * .38 * n(.3), btn: newU * .21 * n(.3), done: 0, dur: 120 * n(.3) * newU * .55, bounce: .4 * n(.3) * newU * .55 } };
+      }
+      out[d] = day;
+    }
+    // 同期（cohort）欄位
+    for (const p of PLATS) {
+      const P = PL[p];
+      hist[p].forEach(c => {
+        const maxAge = daysBetween(c.date, DATA_END) - 1;
+        const perRev = (A) => { let s = 0; for (let j = 0; j <= A; j++) s += ret(j, P, c.q) * arpdau(j) * P.arp; return s; };
+        const src = {};
+        for (const s in c.inst) {
+          const I = c.inst[s], sp = s === 'organic' ? 0 : c.media[s].spend, ok = a => maxAge >= a;
+          src[s] = { inst: I, spend: sp,
+            inst1: ok(1) ? I : 0, inst7: ok(7) ? I : 0, inst30: ok(30) ? I : 0,
+            ret1: ok(1) ? I * ret(1, P, c.q) : 0, ret7: ok(7) ? I * ret(7, P, c.q) : 0, ret30: ok(30) ? I * ret(30, P, c.q) : 0,
+            rev0: I * perRev(0) * srcQ[s], rev7: ok(7) ? I * perRev(7) * srcQ[s] : 0, rev30: ok(30) ? I * perRev(30) * srcQ[s] : 0,
+            spend7: ok(7) ? sp : 0, spend30: ok(30) ? sp : 0 };
+        }
+        const tot = sum(Object.values(c.inst), x => x), mediaSpend = sum(MIDS, id => c.media[id].spend);
+        const retA = {}, revA = {};
+        AGES.forEach(A => { retA[A] = maxAge >= A ? tot * ret(A, P, c.q) : null; revA[A] = maxAge >= A ? sum(Object.keys(c.inst), s => c.inst[s] * perRev(A) * srcQ[s]) : null; });
+        out[c.date][p].coh = { src, tot, spend: mediaSpend, ret: retA, rev: revA };
+      });
+    }
+  }
+  function split(total, items, seed, noise = .3) {
+    const r = rng(seed); const w = items.map(it => (it.w || 1) * (1 - noise / 2 + r() * noise));
+    const W = w.reduce((a, b) => a + b, 0); return items.map((_, i) => total * w[i] / W);
+  }
+  return { out, split, PLATS };
+})();
+
+/* =====================================================================
+ *  DataSource：之後接正式 API 時只要換掉這一段
+ * ===================================================================== */
+const DataSource = {
+  async load(from, to) {
+    // 正式版：return fetch(`${CFG.apiBase}/daily?from=${from}&to=${to}`).then(r => r.json());
+    await new Promise(r => setTimeout(r, 300));
+    const days = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) if (Mock.out[d]) days.push(Mock.out[d]);
+    return days;
+  }
+};
+
+/* =====================================================================
+ *  狀態
+ * ===================================================================== */
+const state = { phase: 'prereg', tab: null, plat: 'all', from: null, to: null, preset: null, raw: [], rawPrev: [], gran: {}, filters: {} };
+const charts = {}, tables = {};
+
+const pick = d => {
+  const v = state.plat === 'all' ? Mock.PLATS.reduce((acc, p) => deepSum(acc, d[p]), null) : d[state.plat];
+  return { date: d.date, phase: d.phase, ...v };
+};
+const cur = () => state.raw.map(pick);
+const prev = () => state.rawPrev.map(pick);
+
+/* ---------- 彙總 ---------- */
+function aggP(days) {
+  days = days.filter(d => d.phase === 'prereg');
+  if (!days.length) return null;
+  const t = days.reduce((a, d) => deepSum(a, d), null);
+  const spend = sum(MIDS, id => t.media[id].spend), mconv = sum(MIDS, id => t.media[id].conv);
+  const chT = type => sum(CFG.preregChannels.filter(c => c.type === type), c => t.ch[c.name] || 0);
+  return { ...t, date: days[days.length - 1].date, n: days.length, cum: days[days.length - 1].cumRegs, spend, mconv, cpa: div(spend, t.regs),
+    webAct: chT('web'), appAct: chT('app'), mweb: sum(MIDS, id => t.media[id].webConv), mapp: sum(MIDS, id => t.media[id].appConv),
+    imp: sum(MIDS, id => t.media[id].imp), clk: sum(MIDS, id => t.media[id].clk), v3: sum(MIDS, id => t.media[id].v3), thru: sum(MIDS, id => t.media[id].thru) };
+}
+function aggL(days) {
+  days = days.filter(d => d.phase === 'launch');
+  if (!days.length) return null;
+  const t = days.reduce((a, d) => deepSum(a, d), null), n = days.length;
+  const spend = sum(MIDS, id => t.media[id].spend);
+  const installs = sum(Object.values(t.inst), x => x), nonorg = sum(MIDS, id => t.inst[id]);
+  const S = t.coh.src, srcs = Object.keys(S), med = MIDS;
+  const s = k => sum(srcs, x => S[x][k]), sm = k => sum(med, x => S[x][k]);
+  return { ...t, n, spend, installs, nonorg, orgShare: div(t.inst.organic, installs), cpi: div(spend, nonorg), repTot: sum(MIDS, id => t.rep[id]),
+    dauAvg: t.dau / n, mau: days[n - 1].mau, payRate: div(t.payers, t.dau), arppu: div(t.rev, t.payers), arpdau: div(t.rev, t.dau),
+    d1: div(s('ret1'), s('inst1')), d7: div(s('ret7'), s('inst7')), d30: div(s('ret30'), s('inst30')),
+    roas0: div(sm('rev0'), spend), roas7: div(sm('rev7'), sm('spend7')), roas30: div(sm('rev30'), sm('spend30')),
+    imp: sum(MIDS, id => t.media[id].imp), clk: sum(MIDS, id => t.media[id].clk), v3: sum(MIDS, id => t.media[id].v3), thru: sum(MIDS, id => t.media[id].thru) };
+}
+function bucket(days, gran) {
+  if (!gran || gran === 'day') return days.map(d => ({ label: d.date, days: [d] }));
+  const map = new Map();
+  for (const d of days) {
+    let key; if (gran === 'month') key = d.date.slice(0, 7);
+    else { const off = (new Date(d.date + 'T00:00:00Z').getUTCDay() + 6) % 7; key = addDays(d.date, -off) + ' 週'; }
+    if (!map.has(key)) map.set(key, []); map.get(key).push(d);
+  }
+  return [...map].map(([label, days]) => ({ label, days }));
+}
+
+/* ---------- UI 小工具 ---------- */
+function delta(c, p, invert = false) {
+  if (p == null || !isFinite(c) || !isFinite(p) || !p) return '';
+  const r = (c - p) / Math.abs(p), good = invert ? r < 0 : r >= 0;
+  return `<div class="d ${good ? 'up' : 'down'}">${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%</div>`;
+}
+function kpi(label, val, c, p, o = {}) {
+  return `<div class="kpi ${o.alt ? 'alt' : ''}"><div class="l">${label}${o.src ? `<span class="src">${o.src}</span>` : ''}</div><div class="v" style="color:${o.color || 'var(--ink)'}">${val}</div>${delta(c, p, o.invert)}${o.extra ? `<div class="x">${o.extra}</div>` : ''}</div>`;
+}
+function seg(id, opts = [['day', '日'], ['week', '週'], ['month', '月']]) {
+  const c = state.gran[id] || opts[0][0];
+  return `<div class="seg" data-seg="${id}">${opts.map(([v, l]) => `<button data-v="${v}" class="${v === c ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+}
+function card(title, body, o = {}) {
+  return `<div class="card"><div class="card-h"><h3>${title}</h3>${o.note ? `<span class="note">${o.note}</span>` : ''}${o.right ? `<div class="rt">${o.right}</div>` : ''}</div>${body}</div>`;
+}
+const canvas = (id, sm) => `<div class="chart ${sm ? 'sm' : ''}"><canvas id="${id}"></canvas></div>`;
+const shareCell = v => `<span class="share"><i style="width:${Math.max(3, v * 60)}px"></i>${fmtP(v)}</span>`;
+const pv = (k, o) => o ? o[k] : null;   // 取前期值（沒有前期就回傳 null）
+
+function table(id, cols, rows, o = {}) {
+  tables[id] = { cols, rows, o, sort: tables[id]?.sort || o.sort || null };
+  return `<div class="tbl-wrap ${o.cls || ''}" id="tw-${id}">${tableHTML(id)}</div>`;
+}
+function tableHTML(id) {
+  const { cols, rows, o, sort } = tables[id];
+  let rs = [...rows];
+  if (sort) { const c = cols.find(c => c.k === sort.k); if (c) rs.sort((a, b) => { const x = a[c.k], y = b[c.k]; return (typeof x === 'string' ? x.localeCompare(y) : (isFinite(x) ? x : -1e18) - (isFinite(y) ? y : -1e18)) * sort.dir; }); }
+  const th = cols.map(c => `<th class="${c.l ? 'l' : ''}" data-sort="${id}|${c.k}">${c.h}${sort && sort.k === c.k ? `<span class="arr">${sort.dir > 0 ? '▲' : '▼'}</span>` : ''}</th>`).join('');
+  const row = (r, cls = '') => `<tr class="${cls}">${cols.map(c => { const v = r[c.k]; const st = c.bg ? c.bg(v, r) : ''; return `<td class="${c.l ? 'l' : ''} ${c.cls || ''} ${v == null && c.na ? 'na' : ''}" style="${st}">${c.f ? c.f(v, r) : v}</td>`; }).join('')}</tr>`;
+  let body = '';
+  rs.forEach(r => { body += row(r); if (r._children && state.filters[`${id}-open-${r._id}`]) r._children.forEach(ch => body += row(ch, 'child')); });
+  if (o.total) body += row(o.total, 'total');
+  return `<table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`;
+}
+function refreshTable(id) { const el = document.getElementById('tw-' + id); if (el) el.innerHTML = tableHTML(id); }
+const togName = (tid) => (v, r) => r._children ? `<span class="tog" data-tog="${tid}|${r._id}">${state.filters[`${tid}-open-${r._id}`] ? '▼' : '▶'}</span>${v}` : v;
+
+/* ---------- 圖表 ---------- */
+const PHONE = matchMedia('(max-width:640px)').matches;
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.font.size = PHONE ? 10 : 11; Chart.defaults.color = '#555';
+function mkChart(id, cfg) { if (charts[id]) charts[id].destroy(); const el = document.getElementById(id); if (el) charts[id] = new Chart(el, cfg); }
+const moneyTick = v => v >= 1e6 ? CFG.currency + (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? CFG.currency + Math.round(v / 1e3) + 'K' : CFG.currency + v;
+const numTick = v => fmtW(v);
+const vLine = (labelIdx, text) => ({ id: 'vline', afterDraw(c) {
+  if (labelIdx < 0) return; const x = c.scales.x.getPixelForValue(labelIdx), { top, bottom } = c.chartArea, g = c.ctx;
+  g.save(); g.strokeStyle = '#d6338a'; g.setLineDash([5, 4]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, top); g.lineTo(x, bottom); g.stroke();
+  g.fillStyle = '#d6338a'; g.font = 'bold 11px sans-serif'; g.fillText(text, x + 4, top + 12); g.restore(); } });
+/* bars: [{label,data,color,stack?}]  lines: [{label,data,color,axis:'y1'|'y',fmt,tick}] */
+function combo(id, labels, bars, lines = [], o = {}) {
+  const y1 = lines.find(l => l.axis !== 'y');
+  mkChart(id, {
+    data: { labels, datasets: [
+      ...bars.map(b => ({ type: 'bar', label: b.label, data: b.data, backgroundColor: b.color, borderColor: b.border || b.color, borderWidth: 1, stack: o.stacked ? 's' : b.label, yAxisID: 'y', order: 2, borderRadius: 2 })),
+      ...lines.map(l => ({ type: 'line', label: l.label, data: l.data, borderColor: l.color || '#e8892d', backgroundColor: l.color || '#e8892d', yAxisID: l.axis === 'y' ? 'y' : 'y1', tension: .3, pointRadius: labels.length > 45 ? 0 : 2.5, order: 1, borderDash: l.dash || [], fill: false }))
+    ] },
+    plugins: o.plugins || [],
+    options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { boxWidth: PHONE ? 10 : 12, padding: PHONE ? 6 : 10 } },
+        tooltip: { callbacks: { label: c => { const ds = c.dataset, l = lines.find(x => x.label === ds.label); return `${ds.label}：${l ? (l.fmt || fmtN)(c.raw) : (o.yFmt || fmtM)(c.raw)}`; } } } },
+      scales: { x: { stacked: !!o.stacked, grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: PHONE ? 5 : 12 } },
+        y: { stacked: !!o.stacked, beginAtZero: true, ticks: { callback: o.yTick || moneyTick } },
+        y1: { display: !!y1, position: 'right', beginAtZero: true, grid: { display: false }, ticks: { callback: y1?.tick || (v => v) } } } }
+  });
+}
+function donut(id, labels, data, colors, fmt = fmtM) {
+  mkChart(id, { type: 'doughnut', data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+    options: { maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: PHONE ? 'bottom' : 'right', labels: { boxWidth: PHONE ? 10 : 12 } },
+      tooltip: { callbacks: { label: c => { const t = c.dataset.data.reduce((a, b) => a + b, 0); return `${c.label}：${fmt(c.raw)}（${fmtP(c.raw / t)}）`; } } } } } });
+}
+const PALETTE = ['#7b5cd6', '#4a7ff0', '#58a55c', '#e8892d', '#2fb5b0', '#d6338a', '#9aa3ad', '#c9a227'];
+const seedKey = tag => `${tag}|${state.from}|${state.to}|${state.plat}`;
+
+/* ---------- 活動 / 素材拆分 ---------- */
+function campaignRows(phase, A) {
+  const rows = [];
+  for (const id of MIDS) {
+    const cs = CFG.campaigns[phase].filter(c => c.media === id); if (!cs.length) continue;
+    const M = A.media[id], sp = Mock.split(M.spend, cs, seedKey('c' + id));
+    const conv = phase === 'prereg' ? M.conv : A.inst[id], ev = cs.map((c, i) => sp[i] * c.eff), evT = ev.reduce((a, b) => a + b, 0);
+    const mRoas7 = phase === 'launch' ? div(A.coh.src[id].rev7, A.coh.src[id].spend7) : 0;
+    cs.forEach((c, i) => {
+      const f = sp[i] / M.spend, r = rng(c.name + state.from), cv = conv * ev[i] / evT;
+      const imp = M.imp * f * (0.8 + r() * .4), clk = M.clk * f * (0.7 + r() * .6), v3 = M.v3 * f * (0.8 + r() * .4);
+      const row = { _id: c.name, name: c.name, media: id, spend: sp[i], share: sp[i] / A.spend, imp, clk, ctr: div(clk, imp), v3r: div(v3, imp), thrur: div(M.thru * f, v3), conv: cv, cpa: div(sp[i], cv) };
+      if (phase === 'prereg') { row.webConv = cv * div(M.webConv, M.conv); row.appConv = cv * div(M.appConv, M.conv); }
+      if (phase === 'launch') { row.rep = cv * (A.rep[id] / A.inst[id]) * (0.95 + r() * .1); row.d7roas = mRoas7 * (0.6 + 0.8 / Math.sqrt(c.eff) * (0.8 + r() * .3)) / 1.3; }
+      if (c.adsets) {
+        const ssp = Mock.split(sp[i], c.adsets.map(() => ({})), seedKey('a' + c.name), .9);
+        row._children = c.adsets.map((n, j) => { const g = ssp[j] / sp[i], q = 0.7 + rng(n + c.name)() * .6, ccv = cv * g * q;
+          return { name: '↳ ' + n, spend: ssp[j], share: ssp[j] / A.spend, imp: imp * g, clk: clk * g * q, ctr: row.ctr * q, v3r: row.v3r * (0.9 + q * .1), thrur: row.thrur * q, conv: ccv, cpa: div(ssp[j], ccv), webConv: row.webConv != null ? ccv * div(row.webConv, cv) : undefined, appConv: row.appConv != null ? ccv * div(row.appConv, cv) : undefined, rep: row.rep ? row.rep * g * q : undefined, d7roas: row.d7roas ? row.d7roas * q : undefined }; });
+      }
+      rows.push(row);
+    });
+  }
+  return rows;
+}
+
+/* =====================================================================
+ *  分頁 Views
+ * ===================================================================== */
+const Views = {};
+const empty = msg => ({ html: `<div class="empty">${msg}</div>`, draw() {} });
+
+/* ---------- 預約總覽 ---------- */
+Views.pOverview = () => {
+  const A = aggP(cur()), P = aggP(prev()); if (!A) return empty('此區間沒有預約期資料');
+  const ms = CFG.milestones, max = Math.max(ms[ms.length - 1] * 1.08, A.cum * 1.05);
+  const hit = ms.filter(m => A.cum >= m).length, next = ms.find(m => A.cum < m);
+  const pace7 = div(sum(cur().slice(-7), 'regs'), Math.min(7, A.n));
+  const daysLeft = LAUNCHED ? 0 : daysBetween(DATA_END, CFG.launchDate) - 1;
+  const eta = next ? Math.ceil((next - A.cum) / pace7) : 0;
+  const chRows = Object.entries(A.ch).map(([name, v]) => ({ name, regs: v, share: v / A.regs })).sort((a, b) => b.regs - a.regs);
+  const html = `
+  <div class="kpis">
+    ${kpi('累積預約數', fmtN(A.cum), null, null, { color: 'var(--purple)', src: '後台', extra: `截至 ${A.date}` })}
+    ${kpi('區間新增預約', fmtN(A.regs), A.regs, pv('regs', P), { color: 'var(--blue)', src: '後台', extra: `網頁 ${fmtP(A.webAct / A.regs)}・App ${fmtP(A.appAct / A.regs)}` })}
+    ${kpi('網頁預約', fmtN(A.webAct), A.webAct, pv('webAct', P), { src: '後台' })}
+    ${kpi('App 預約', fmtN(A.appAct), A.appAct, pv('appAct', P), { src: '商店後台', extra: CFG.preregChannels.filter(c => c.type === 'app' && A.ch[c.name] != null).map(c => `${c.name.split(' ')[0] === 'Google' ? 'GP' : 'AS'} ${fmtN(A.ch[c.name])}`).join('・') })}
+    ${kpi('廣告花費', fmtM(A.spend), A.spend, pv('spend', P), { color: 'var(--blue)' })}
+    ${kpi('CPA（每筆預約成本）', fmtM1(A.cpa), A.cpa, pv('cpa', P), { invert: true, extra: '花費 ÷ 後台新增預約（網頁＋App）' })}
+    ${kpi('官網預約完成率', fmtP(div(A.ga.done, A.ga.pv)), div(A.ga.done, A.ga.pv), P ? div(P.ga.done, P.ga.pv) : null, { src: 'GA4', alt: 1, extra: '完成預約 ÷ 預約頁瀏覽' })}
+  </div>
+  ${card('🏁 預約里程碑', `
+    <div class="ms"><div class="track"><div class="fill" style="width:${A.cum / max * 100}%"></div></div>
+      ${ms.map(m => `<div class="mk ${A.cum >= m ? 'hit' : ''}" style="left:${m / max * 100}%">${fmtW(m)}${A.cum >= m ? ' ✓' : ''}</div>`).join('')}
+      <div class="now" style="left:${Math.min(96, A.cum / max * 100)}%">▲ ${fmtN(A.cum)}</div></div>
+    <div class="ms-sum">
+      <div>已達成 <b>${hit} / ${ms.length}</b> 個里程碑</div>
+      <div>近 7 日平均 <b>${fmtN(pace7)}</b> 筆 / 天</div>
+      ${!next ? `<div>🎉 已達成所有里程碑</div>` : LAUNCHED && A.date === PREREG_END ? `<div>未達 ${fmtW(next)}，最終差 <b>${fmtN(next - A.cum)}</b></div>` : `<div>距下一關 ${fmtW(next)} 還差 <b>${fmtN(next - A.cum)}</b>，依區間末速度約 <b>${eta}</b> 天</div>`}
+      ${!LAUNCHED ? `<div>距上市 <b>${daysLeft}</b> 天，預估上市前可達 <b>${fmtN(A.cum + pace7 * daysLeft)}</b></div>` : `<div>上市前最終預約數 <b>${fmtN(Mock.PLATS.reduce((s, p) => s + Mock.out[PREREG_END][p].cumRegs, 0))}</b>（全平台）</div>`}
+    </div>`)}
+  <div class="grid2">
+    ${card('📅 每日新增預約（依管道）', canvas('cPreg'), { right: seg('pregTrend') })}
+    ${card('🧭 預約管道佔比', canvas('cPregCh', 1) + table('tPregCh', [{ k: 'name', h: '管道', l: 1 }, { k: 'regs', h: '預約數', f: fmtN }, { k: 'share', h: '佔比', f: v => fmtP(v) }], chRows))}
+  </div>`;
+  const draw = () => {
+    const bs = bucket(cur(), state.gran.pregTrend);
+    const names = CFG.preregChannels.map(c => c.name).filter(n => A.ch[n] != null);
+    combo('cPreg', bs.map(b => b.label), names.map((n, i) => ({ label: n, data: bs.map(b => sum(b.days, d => d.ch[n] || 0)), color: PALETTE[i] })),
+      [{ label: '累積預約', data: bs.map(b => b.days[b.days.length - 1].cumRegs), color: '#d6338a', fmt: fmtN, tick: numTick }],
+      { stacked: true, yFmt: fmtN, yTick: numTick });
+    donut('cPregCh', chRows.map(r => r.name), chRows.map(r => r.regs), chRows.map(r => PALETTE[names.indexOf(r.name)]), fmtN);
+  };
+  return { html, draw };
+};
+
+/* ---------- 媒體成效（預約期 / 上市後共用） ---------- */
+function mediaView(phase) {
+  const agg = phase === 'prereg' ? aggP : aggL;
+  const A = agg(cur()), P = agg(prev()); if (!A) return empty('此區間沒有資料');
+  const isP = phase === 'prereg', cpaL = isP ? 'CPA' : 'CPI';
+  const conv = id => isP ? A.media[id].conv : A.inst[id];
+  const mrows = MIDS.map(id => { const M = A.media[id]; const r = { name: id, spend: M.spend, share: M.spend / A.spend, imp: M.imp, clk: M.clk, ctr: div(M.clk, M.imp), v3r: div(M.v3, M.imp), thrur: div(M.thru, M.v3), conv: conv(id), cpa: div(M.spend, conv(id)) };
+    if (isP) Object.assign(r, { webConv: M.webConv, appConv: M.appConv });
+    if (!isP) { const S = A.coh.src[id]; Object.assign(r, { rep: A.rep[id], gap: A.rep[id] / A.inst[id] - 1, d1: div(S.ret1, S.inst1), d7roas: div(S.rev7, S.spend7) }); } return r; });
+  const totConv = sum(mrows, 'conv');
+  const tot = { name: '合計', spend: A.spend, share: 1, imp: A.imp, clk: A.clk, ctr: div(A.clk, A.imp), v3r: div(A.v3, A.imp), thrur: div(A.thru, A.v3), conv: totConv, cpa: div(A.spend, totConv) };
+  if (isP) Object.assign(tot, { webConv: A.mweb, appConv: A.mapp });
+  if (!isP) Object.assign(tot, { rep: A.repTot, gap: A.repTot / A.nonorg - 1, d1: div(sum(MIDS, id => A.coh.src[id].ret1), sum(MIDS, id => A.coh.src[id].inst1)), d7roas: A.roas7 });
+  const baseCols = [{ k: 'spend', h: '花費', f: fmtM }, { k: 'share', h: '佔比', f: shareCell }, { k: 'imp', h: '曝光', f: fmtN }, { k: 'ctr', h: 'CTR', f: v => fmtP(v, 2) },
+    { k: 'v3r', h: '3秒觀看率', f: v => fmtP(v) }, { k: 'thrur', h: '完整觀看率', f: v => fmtP(v) },
+    ...(isP ? [{ k: 'webConv', h: '網頁轉換', f: fmtN }] : []),
+    { k: 'conv', h: isP ? '媒體歸因預約' : '安裝（AppsFlyer）', f: fmtN }, { k: 'cpa', h: isP ? 'CPA（媒體歸因）' : cpaL, f: fmtM1 }];
+  const launchCols = isP ? [] : [{ k: 'rep', h: '媒體回報安裝', f: fmtN }, { k: 'gap', h: '高報幅度', f: v => isFinite(v) ? `<span class="gap-pos">+${fmtP(v)}</span>` : '—' }, { k: 'd1', h: 'D1 留存', f: v => fmtP(v) }, { k: 'd7roas', h: 'D7 ROAS', f: fmtPctX }];
+  const camps = campaignRows(phase, A);
+  const campCols = [{ k: 'name', h: '廣告活動', l: 1, f: (v, r) => (r.media ? `<span class="dot" style="background:${mColor(r.media)}"></span>` : '') + togName('tCamp')(v, r) },
+    ...baseCols, ...(isP ? [] : [{ k: 'rep', h: '媒體回報安裝', f: fmtN }, { k: 'd7roas', h: 'D7 ROAS', f: fmtPctX }])];
+  const Pc = P ? { spend: P.spend, imp: P.imp, clk: P.clk, conv: isP ? P.mconv : P.nonorg } : null;
+  const html = `
+  <div class="kpis">
+    ${kpi('花費', fmtM(A.spend), A.spend, pv('spend', Pc), { color: 'var(--blue)' })}
+    ${kpi('曝光', fmtW(A.imp), A.imp, pv('imp', Pc))}
+    ${kpi('點擊', fmtN(A.clk), A.clk, pv('clk', Pc))}
+    ${kpi('CTR', fmtP(div(A.clk, A.imp), 2), div(A.clk, A.imp), Pc ? div(Pc.clk, Pc.imp) : null)}
+    ${kpi('3秒觀看率', fmtP(div(A.v3, A.imp)), div(A.v3, A.imp), P ? div(P.v3, P.imp) : null)}
+    ${kpi(isP ? '媒體歸因預約' : '非自然安裝', fmtN(totConv), totConv, pv('conv', Pc), { color: 'var(--purple)', src: isP ? '媒體' : 'AppsFlyer', extra: isP ? `網頁 ${fmtN(A.mweb)}・App ${fmtN(A.mapp)}` : '' })}
+    ${kpi(isP ? 'CPA（媒體歸因）' : cpaL, fmtM1(div(A.spend, totConv)), div(A.spend, totConv), Pc ? div(Pc.spend, Pc.conv) : null, { invert: true })}
+    ${isP ? kpi('CPA（後台實際）', fmtM1(A.cpa), A.cpa, pv('cpa', P), { invert: true, alt: 1, extra: '花費 ÷ 後台新增預約' }) : ''}
+    ${isP ? '' : kpi('D7 ROAS', fmtPctX(A.roas7), A.roas7, pv('roas7', P), { color: 'var(--pos)', src: 'AF × 後台', extra: '只算已滿 7 天的同期' })}
+  </div>
+  <div class="grid2">
+    ${card('📅 每日花費（依媒體）', canvas('cMed'), { right: seg('medTrend') })}
+    ${card('💰 花費佔比', canvas('cMedPie'))}
+  </div>
+  ${card('📊 媒體比較', table('tMed', [{ k: 'name', h: '媒體', l: 1, f: v => v === '合計' ? v : `<span class="dot" style="background:${mColor(v)}"></span>${mName(v)}` }, ...baseCols, ...launchCols], mrows, { total: tot }),
+    { note: isP ? '媒體歸因 = 各媒體自己回報（網頁轉換＋Google Play 預註冊），會重複認領；實際預約看「預約總覽」' : '安裝以 AppsFlyer 歸因為準，「高報幅度」＝ 媒體自己回報比 AF 多出的比例' })}
+  ${card('🎯 廣告活動成效', table('tCamp', campCols, camps, { sort: { k: 'spend', dir: -1 } }), { note: `${camps.length} 個廣告活動・Meta 活動可點 ▶ 展開廣告組合` })}`;
+  const draw = () => {
+    const bs = bucket(cur(), state.gran.medTrend);
+    combo('cMed', bs.map(b => b.label), MIDS.map(id => ({ label: mName(id), data: bs.map(b => sum(b.days, d => d.media[id].spend)), color: mColor(id) + 'b0', border: mColor(id) })),
+      [isP ? { label: 'CPA', data: bs.map(b => div(sum(b.days, d => sum(MIDS, id => d.media[id].spend)), sum(b.days, 'regs'))), color: '#d6338a', fmt: fmtM1, tick: v => CFG.currency + v }
+           : { label: 'CPI', data: bs.map(b => div(sum(b.days, d => sum(MIDS, id => d.media[id].spend)), sum(b.days, d => sum(MIDS, id => d.inst[id])))), color: '#d6338a', fmt: fmtM1, tick: v => CFG.currency + v }],
+      { stacked: true });
+    donut('cMedPie', MIDS.map(mName), MIDS.map(id => A.media[id].spend), MIDS.map(mColor));
+  };
+  return { html, draw };
+}
+Views.pMedia = () => mediaView('prereg');
+Views.lMedia = () => mediaView('launch');
+
+/* ---------- 素材 ---------- */
+Views.creative = () => {
+  const isP = state.phase === 'prereg', A = isP ? aggP(cur()) : aggL(cur()); if (!A) return empty('此區間沒有資料');
+  const f = state.filters.crMedia || 'all';
+  const list = CFG.creatives.filter(c => c.phase === (isP ? 'prereg' : 'launch'));
+  const rows = [];
+  for (const id of MIDS) {
+    const cs = list.filter(c => c.media === id); if (!cs.length) continue;
+    const M = A.media[id], sp = Mock.split(M.spend, cs, seedKey('cr' + id), .8), conv = isP ? M.conv : A.inst[id];
+    cs.forEach((c, i) => { const r = rng(c.name + state.from + state.plat), g = sp[i] / M.spend, q = .6 + r() * .9, vid = c.type === '影片';
+      const imp = M.imp * g * (.8 + r() * .4), clk = imp * div(M.clk, M.imp) * (.6 + r() * .9), v3 = vid ? imp * div(M.v3, M.imp) * (.75 + r() * .5) : NaN, cv = conv * g * q;
+      rows.push({ name: c.name, media: id, type: c.type, hue: hash(c.name) % 360, spend: sp[i], imp, ctr: div(clk, imp), v3r: div(v3, imp), thrur: vid ? div(M.thru, M.v3) * (.6 + r() * .8) : NaN, conv: cv, cpa: div(sp[i], cv),
+        d7roas: isP ? NaN : div(A.coh.src[id].rev7, A.coh.src[id].spend7) * q * (.85 + r() * .3) }); });
+  }
+  const shown = rows.filter(r => f === 'all' || r.media === f);
+  const thumb = r => `<span class="thumb ${r.type === '影片' ? 'vid' : ''}" style="background:linear-gradient(135deg,hsl(${r.hue} 55% 62%),hsl(${(r.hue + 60) % 360} 50% 32%))"></span>`;
+  const html = `
+  ${card('🎨 素材成效', table('tCr', [
+    { k: 'name', h: '素材名稱', l: 1 }, { k: 'hue', h: '縮圖', l: 1, f: (v, r) => thumb(r) + ` <span class="tag">${r.type}</span>` }, { k: 'media', h: '媒體', l: 1, f: v => `<span class="dot" style="background:${mColor(v)}"></span>${mName(v)}` },
+    { k: 'spend', h: '花費', f: fmtM }, { k: 'imp', h: '曝光', f: fmtN }, { k: 'ctr', h: 'CTR', f: v => fmtP(v, 2) }, { k: 'v3r', h: '3秒觀看率', f: v => fmtP(v) }, { k: 'thrur', h: '完整觀看率', f: v => fmtP(v) },
+    { k: 'conv', h: isP ? '預約（媒體歸因）' : '安裝', f: fmtN }, { k: 'cpa', h: isP ? 'CPA' : 'CPI', f: fmtM1 }, ...(isP ? [] : [{ k: 'd7roas', h: 'D7 ROAS', f: fmtPctX }])], shown, { sort: { k: 'spend', dir: -1 } }),
+    { note: `${shown.length} 支素材・點欄位標題可排序・圖像素材沒有觀看率`, right: `<select id="crMedia"><option value="all">所有媒體</option>${MEDIA.map(m => `<option value="${m.id}" ${f === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}</select>` })}`;
+  return { html, draw() {} };
+};
+
+/* ---------- GA4 官網 ---------- */
+Views.ga4 = () => {
+  const isP = state.phase === 'prereg', agg = isP ? aggP : aggL, A = agg(cur()), P = agg(prev()); if (!A) return empty('此區間沒有資料');
+  const g = A.ga, gp = P ? P.ga : null;
+  const steps = isP ? [['到站工作階段', g.sessions], ['預約頁瀏覽', g.pv], ['點擊預約按鈕', g.btn], ['完成預約', g.done]]
+                    : [['到站工作階段', g.sessions], ['下載頁瀏覽', g.pv], ['點擊商店按鈕', g.btn]];
+  const funnel = `<div class="funnel">${steps.map(([l, v], i) => `<div class="fn-row"><span>${l}</span><div><div class="fn-bar" style="width:${Math.max(8, v / steps[0][1] * 100)}%">${fmtN(v)}</div></div><span class="fn-rate">${i ? '轉換 ' + fmtP(v / steps[i - 1][1]) : '—'}</span></div>`).join('')}</div>`;
+  const utm = Mock.split(g.sessions, CFG.mock.utm, seedKey('utm'), .3), utmC = Mock.split(isP ? g.done : g.btn, CFG.mock.utm.map(u => ({ w: u.w * (0.6 + rng(u.name)() * .9) })), seedKey('utmc'), .2);
+  const urows = CFG.mock.utm.map((u, i) => ({ name: u.name, ses: utm[i], conv: utmC[i], rate: utmC[i] / utm[i] }));
+  const html = `
+  <div class="kpis">
+    ${kpi('工作階段', fmtN(g.sessions), g.sessions, pv('sessions', gp), { color: 'var(--blue)' })}
+    ${kpi(isP ? '預約頁瀏覽' : '下載頁瀏覽', fmtN(g.pv), g.pv, pv('pv', gp))}
+    ${kpi(isP ? '點擊預約按鈕' : '點擊商店按鈕', fmtN(g.btn), g.btn, pv('btn', gp), { color: 'var(--teal)' })}
+    ${isP ? kpi('完成預約', fmtN(g.done), g.done, pv('done', gp), { color: 'var(--purple)' }) : ''}
+    ${kpi('平均停留', fmtT(g.dur / g.sessions), g.dur / g.sessions, gp ? gp.dur / gp.sessions : null)}
+    ${kpi('跳出率', fmtP(g.bounce / g.sessions), g.bounce / g.sessions, gp ? gp.bounce / gp.sessions : null, { invert: true })}
+  </div>
+  <div class="grid-half">
+    ${card(isP ? '🪜 官網預約漏斗' : '🪜 官網下載漏斗', funnel, { note: isP ? '找出預約流程卡在哪一步' : '點商店按鈕後的安裝以 AppsFlyer 為準' })}
+    ${card('📅 每日趨勢', canvas('cGa', 1), { right: seg('gaTrend') })}
+  </div>
+  ${card('🔗 來源 / 媒介', table('tUtm', [{ k: 'name', h: '來源 / 媒介', l: 1 }, { k: 'ses', h: '工作階段', f: fmtN }, { k: 'conv', h: isP ? '完成預約' : '點商店按鈕', f: fmtN }, { k: 'rate', h: '轉換率', f: v => fmtP(v, 2) }], urows, { sort: { k: 'ses', dir: -1 } }))}`;
+  const draw = () => {
+    const bs = bucket(cur(), state.gran.gaTrend);
+    combo('cGa', bs.map(b => b.label), [{ label: '工作階段', data: bs.map(b => sum(b.days, d => d.ga.sessions)), color: 'rgba(74,127,240,.45)', border: '#4a7ff0' }],
+      [{ label: isP ? '預約完成率' : '商店點擊率', data: bs.map(b => div(sum(b.days, d => isP ? d.ga.done : d.ga.btn), sum(b.days, d => d.ga.sessions))), color: '#7b5cd6', fmt: v => fmtP(v, 2), tick: v => (v * 100).toFixed(0) + '%' }],
+      { yFmt: fmtN, yTick: numTick });
+  };
+  return { html, draw };
+};
+
+/* ---------- 上市總覽 ---------- */
+Views.lOverview = () => {
+  const A = aggL(cur()), P = aggL(prev()); if (!A) return empty(LAUNCHED ? '此區間沒有上市後資料' : '尚未上市');
+  const html = `
+  <div class="kpis">
+    ${kpi('總下載', fmtN(A.installs), A.installs, pv('installs', P), { color: 'var(--blue)', src: 'AF' })}
+    ${kpi('非自然佔比', fmtP(1 - A.orgShare), 1 - A.orgShare, P ? 1 - P.orgShare : null, { src: 'AF', extra: `自然 / 預約兌換 ${fmtN(A.inst.organic)}` })}
+    ${kpi('廣告花費', fmtM(A.spend), A.spend, pv('spend', P), { color: 'var(--blue)' })}
+    ${kpi('CPI', fmtM1(A.cpi), A.cpi, pv('cpi', P), { invert: true, extra: '花費 ÷ 非自然安裝' })}
+    ${kpi('新創角', fmtN(A.roles), A.roles, pv('roles', P), { color: 'var(--purple)', src: '後台', extra: `創角率 ${fmtP(A.roles / A.installs)}` })}
+    ${kpi('平均 DAU', fmtN(A.dauAvg), A.dauAvg, pv('dauAvg', P), { src: '後台' })}
+    ${kpi('營收', fmtM(A.rev), A.rev, pv('rev', P), { color: 'var(--pink)', src: '後台' })}
+    ${kpi('付費率', fmtP(A.payRate, 2), A.payRate, pv('payRate', P), { src: '後台' })}
+    ${kpi('ARPPU', fmtM(A.arppu), A.arppu, pv('arppu', P), { src: '後台' })}
+    ${kpi('D1 留存', fmtP(A.d1), A.d1, pv('d1', P), { alt: 1, src: 'AF' })}
+    ${kpi('D7 留存', fmtP(A.d7), A.d7, pv('d7', P), { alt: 1, src: 'AF' })}
+    ${kpi('D7 ROAS', fmtPctX(A.roas7), A.roas7, pv('roas7', P), { alt: 1, color: 'var(--pos)', extra: '非自然同期 D7 營收 ÷ 花費' })}
+  </div>
+  <div class="grid-half">
+    ${card('📲 每日下載（自然 vs 非自然）', canvas('cInst'), { right: seg('instTrend') })}
+    ${card('🎮 DAU 與營收', canvas('cDau'), { right: seg('dauTrend') })}
+  </div>
+  ${(CFG.liveEvents || []).length ? `<div class="info-box">📌 營運活動：${CFG.liveEvents.map(e => `${e.date} ${e.name}`).join('　·　')}</div>` : ''}`;
+  const draw = () => {
+    let bs = bucket(cur(), state.gran.instTrend);
+    combo('cInst', bs.map(b => b.label), [
+      { label: '自然 / 預約兌換', data: bs.map(b => sum(b.days, d => d.inst.organic)), color: 'rgba(154,163,173,.55)', border: '#9aa3ad' },
+      { label: '非自然', data: bs.map(b => sum(b.days, d => sum(MIDS, id => d.inst[id]))), color: 'rgba(123,92,214,.6)', border: '#7b5cd6' }],
+      [{ label: 'CPI', data: bs.map(b => div(sum(b.days, d => sum(MIDS, id => d.media[id].spend)), sum(b.days, d => sum(MIDS, id => d.inst[id])))), color: '#e8892d', fmt: fmtM1, tick: v => CFG.currency + v }],
+      { stacked: true, yFmt: fmtN, yTick: numTick });
+    bs = bucket(cur(), state.gran.dauTrend);
+    combo('cDau', bs.map(b => b.label), [{ label: '營收', data: bs.map(b => sum(b.days, 'rev')), color: 'rgba(214,51,138,.35)', border: '#d6338a' }],
+      [{ label: '平均 DAU', data: bs.map(b => sum(b.days, 'dau') / b.days.length), color: '#4a7ff0', fmt: fmtN, tick: numTick }]);
+  };
+  return { html, draw };
+};
+
+/* ---------- AppsFlyer 歸因 ---------- */
+Views.af = () => {
+  const A = aggL(cur()), P = aggL(prev()); if (!A) return empty('尚無上市後資料');
+  const srcs = ['organic', ...MIDS];
+  const rows = srcs.map(s => { const S = A.coh.src[s], sp = s === 'organic' ? NaN : A.media[s].spend;
+    return { name: s, inst: S.inst, share: S.inst / A.installs, spend: sp, cpi: div(sp, S.inst), rep: s === 'organic' ? NaN : A.rep[s], gap: s === 'organic' ? NaN : A.rep[s] / S.inst - 1,
+      d1: div(S.ret1, S.inst1), d7: div(S.ret7, S.inst7), d30: div(S.ret30, S.inst30), rev7: S.rev7, roas7: div(S.rev7, S.spend7), roas30: div(S.rev30, S.spend30) }; });
+  const T = A.coh.src, sk = k => sum(srcs, s => T[s][k]);
+  const tot = { name: '合計', inst: A.installs, share: 1, spend: A.spend, cpi: A.cpi, rep: A.repTot, gap: A.repTot / A.nonorg - 1, d1: div(sk('ret1'), sk('inst1')), d7: div(sk('ret7'), sk('inst7')), d30: div(sk('ret30'), sk('inst30')), rev7: sk('rev7'), roas7: A.roas7, roas30: A.roas30 };
+  const iosShare = state.plat === 'all' ? (() => { const io = aggL(state.raw.map(d => ({ date: d.date, phase: d.phase, ...d.ios }))); return io.installs / A.installs; })() : null;
+  const html = `
+  <div class="kpis">
+    ${kpi('總安裝', fmtN(A.installs), A.installs, pv('installs', P), { color: 'var(--blue)' })}
+    ${kpi('非自然安裝', fmtN(A.nonorg), A.nonorg, pv('nonorg', P), { color: 'var(--purple)' })}
+    ${kpi('自然 / 預約兌換', fmtN(A.inst.organic), A.inst.organic, P ? P.inst.organic : null)}
+    ${kpi('媒體回報安裝', fmtN(A.repTot), A.repTot, pv('repTot', P), { extra: `比 AF 多 ${fmtP(A.repTot / A.nonorg - 1)}` })}
+    ${iosShare != null ? kpi('iOS 佔比', fmtP(iosShare), null, null, { extra: `Android ${fmtP(1 - iosShare)}` }) : ''}
+    ${kpi('D30 ROAS', fmtPctX(A.roas30), A.roas30, pv('roas30', P), { alt: 1, color: 'var(--pos)', extra: '只算已滿 30 天的同期' })}
+  </div>
+  <div class="grid2">
+    ${card('📊 媒體來源比較', table('tAf', [
+      { k: 'name', h: '媒體來源', l: 1, f: v => v === '合計' ? v : `<span class="dot" style="background:${mColor(v)}"></span>${mName(v)}` },
+      { k: 'inst', h: '安裝', f: fmtN }, { k: 'share', h: '佔比', f: shareCell }, { k: 'spend', h: '花費', f: v => isFinite(v) ? fmtM(v) : '—' }, { k: 'cpi', h: 'CPI', f: fmtM1 },
+      { k: 'rep', h: '媒體回報', f: v => isFinite(v) ? fmtN(v) : '—' }, { k: 'gap', h: '高報', f: v => isFinite(v) ? `<span class="gap-pos">+${fmtP(v)}</span>` : '—' },
+      { k: 'd1', h: 'D1', f: v => fmtP(v) }, { k: 'd7', h: 'D7', f: v => fmtP(v) }, { k: 'd30', h: 'D30', f: v => fmtP(v) }, { k: 'roas7', h: 'D7 ROAS', f: fmtPctX }, { k: 'roas30', h: 'D30 ROAS', f: fmtPctX }], rows, { total: tot }))}
+    ${card('🥧 安裝來源佔比', canvas('cAfPie'))}
+  </div>
+  <div class="warn">⚠️ iOS 受 ATT 影響，AppsFlyer 的 iOS 媒體歸因含 SKAN 模型推估，留存與 ROAS 僅供方向參考。D7 / D30 只計算已經滿 7 / 30 天的安裝日，所以區間太短時會顯示「—」。</div>
+  ${card('📈 媒體來源 D7 ROAS 走勢（依安裝週）', canvas('cAfRoas'))}`;
+  const draw = () => {
+    donut('cAfPie', srcs.map(mName), srcs.map(s => A.coh.src[s].inst), srcs.map(mColor), fmtN);
+    const bs = bucket(cur(), 'week').filter(b => b.days.some(d => d.coh.src.meta.spend7 > 0));
+    mkChart('cAfRoas', { type: 'line', data: { labels: bs.map(b => b.label), datasets: MIDS.map(id => ({ label: mName(id), data: bs.map(b => div(sum(b.days, d => d.coh.src[id].rev7), sum(b.days, d => d.coh.src[id].spend7))), borderColor: mColor(id), backgroundColor: mColor(id), tension: .3 })) },
+      options: { maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}：${fmtPctX(c.raw)}` } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => Math.round(v * 100) + '%' } } } } });
+  };
+  return { html, draw };
+};
+
+/* ---------- 營運數據（客戶後台） ---------- */
+Views.ops = () => {
+  const A = aggL(cur()), P = aggL(prev()); if (!A) return empty('尚無上市後資料');
+  const pk = CFG.packs, sp = Mock.split(A.rev, pk.map(p => ({ w: p.w * p.price ** .35 })), seedKey('pk'), .3);
+  const prow = pk.map((p, i) => ({ name: p.name, price: p.price, rev: sp[i], cnt: sp[i] / p.price, share: sp[i] / A.rev })).sort((a, b) => b.rev - a.rev);
+  const html = `
+  <div class="kpis">
+    ${kpi('平均 DAU', fmtN(A.dauAvg), A.dauAvg, pv('dauAvg', P), { color: 'var(--blue)' })}
+    ${kpi('MAU', fmtN(A.mau), null, null, { extra: `黏著度 DAU/MAU ${fmtP(A.dauAvg / A.mau)}` })}
+    ${kpi('新創角', fmtN(A.roles), A.roles, pv('roles', P), { color: 'var(--purple)' })}
+    ${kpi('營收', fmtM(A.rev), A.rev, pv('rev', P), { color: 'var(--pink)' })}
+    ${kpi('付費人次', fmtN(A.payers), A.payers, pv('payers', P))}
+    ${kpi('ARPDAU', fmtM1(A.arpdau), A.arpdau, pv('arpdau', P))}
+    ${kpi('ARPPU', fmtM(A.arppu), A.arppu, pv('arppu', P))}
+  </div>
+  <div class="info-box">資料來源：客戶後台（每日匯出）。營收為玩家實際儲值金額，<b>尚未扣除</b> Apple / Google 平台抽成。</div>
+  <div class="grid2">
+    ${card('👥 DAU 組成（新進 vs 回流）', canvas('cOps'), { right: seg('opsTrend') })}
+    ${card('💎 儲值品項佔比', canvas('cPack'))}
+  </div>
+  ${card('🏆 儲值品項排行', table('tPack', [{ k: 'name', h: '品項', l: 1 }, { k: 'price', h: '單價', f: fmtM }, { k: 'cnt', h: '購買次數', f: fmtN }, { k: 'rev', h: '營收', f: fmtM }, { k: 'share', h: '營收佔比', f: shareCell }], prow, { sort: { k: 'rev', dir: -1 } }))}`;
+  const draw = () => {
+    const bs = bucket(cur(), state.gran.opsTrend);
+    combo('cOps', bs.map(b => b.label), [
+      { label: '新進玩家', data: bs.map(b => sum(b.days, 'newU') / b.days.length), color: 'rgba(123,92,214,.65)', border: '#7b5cd6' },
+      { label: '回流玩家', data: bs.map(b => sum(b.days, d => d.dau - d.newU) / b.days.length), color: 'rgba(74,127,240,.35)', border: '#4a7ff0' }],
+      [{ label: '付費率', data: bs.map(b => div(sum(b.days, 'payers'), sum(b.days, 'dau'))), color: '#e8892d', fmt: v => fmtP(v, 2), tick: v => (v * 100).toFixed(1) + '%' }],
+      { stacked: true, yFmt: fmtN, yTick: numTick });
+    donut('cPack', prow.map(r => r.name), prow.map(r => r.rev), PALETTE);
+  };
+  return { html, draw };
+};
+
+/* ---------- 預約轉換 ---------- */
+Views.redeem = () => {
+  if (!LAUNCHED) return empty('尚未上市');
+  const preDay = pick(Mock.out[PREREG_END]), pre = preDay.cumRegs;
+  const all = Object.keys(Mock.out).filter(d => d >= CFG.launchDate).sort().map(d => pick(Mock.out[d]));
+  const upTo = all.filter(d => d.date <= state.to);
+  const redeemed = sum(upTo, 'redeem');
+  const P0 = aggP(Object.keys(Mock.out).filter(d => d < CFG.launchDate).map(d => pick(Mock.out[d])));
+  const chRows = Object.entries(P0.ch).map(([name, v]) => { const c = CFG.preregChannels.find(x => x.name === name); const rate = (c?.redeem || .4) * (redeemed / pre) / CFG.mock.redeemRate * (0.95 + rng(name)() * .1); return { name, regs: v, rate, red: v * rate }; });
+  const k7 = all.slice(0, 7);
+  const html = `
+  <div class="kpis">
+    ${kpi('上市前累積預約', fmtN(pre), null, null, { color: 'var(--purple)', src: '後台' })}
+    ${kpi('已兌換（下載並創角）', fmtN(redeemed), null, null, { color: 'var(--blue)', extra: `截至 ${upTo.length ? upTo[upTo.length - 1].date : '—'}` })}
+    ${kpi('預約兌換率', fmtP(redeemed / pre), null, null, { color: 'var(--pos)' })}
+    ${kpi('上市首週兌換', fmtN(sum(k7, 'redeem')), null, null, { extra: `佔總兌換 ${fmtP(sum(k7, 'redeem') / redeemed)}` })}
+    ${kpi('預約期每筆成本 → 每位兌換玩家', fmtM1(P0.spend / redeemed), null, null, { alt: 1, extra: `預約期花費 ${fmtM(P0.spend)} ÷ 兌換人數` })}
+  </div>
+  <div class="grid2">
+    ${card('📈 累積兌換曲線（上市後）', canvas('cRed'))}
+    ${card('🧭 各管道兌換率', table('tRedCh', [{ k: 'name', h: '預約管道', l: 1 }, { k: 'regs', h: '預約數', f: fmtN }, { k: 'red', h: '已兌換', f: fmtN }, { k: 'rate', h: '兌換率', f: v => fmtP(v) }], chRows, { sort: { k: 'rate', dir: -1 } }))}
+  </div>
+  <div class="info-box">💡 預約兌換率是證明「預約期投放有沒有白花」的關鍵數字：Discord、Google Play 預註冊這類高意圖管道兌換率通常較高，下次預約期可提高預算比重。</div>`;
+  const draw = () => {
+    let c = 0; const pts = upTo.map(d => (c += d.redeem, c));
+    combo('cRed', upTo.map(d => d.date), [{ label: '當日兌換', data: upTo.map(d => d.redeem), color: 'rgba(123,92,214,.5)', border: '#7b5cd6' }],
+      [{ label: '累積兌換率', data: pts.map(v => v / pre), color: '#d6338a', fmt: v => fmtP(v), tick: v => Math.round(v * 100) + '%' }], { yFmt: fmtN, yTick: numTick });
+  };
+  return { html, draw };
+};
+
+/* ---------- 同期留存熱圖 ---------- */
+Views.cohort = () => {
+  const days = cur().filter(d => d.phase === 'launch'); if (!days.length) return empty('尚無上市後資料');
+  const mode = state.gran.cohMode || 'ret', gran = state.gran.cohGran || (days.length > 31 ? 'week' : 'day');
+  const bs = bucket(days, gran);
+  const rows = bs.map(b => { const t = b.days.reduce((a, d) => deepSum(a, d.coh), null); const r = { label: b.label, inst: t.tot, spend: t.spend, cpi: div(t.spend, sum(MIDS, id => t.src[id].inst)) };
+    AGES.forEach(A => { const full = b.days.every(d => d.coh.ret[A] != null); r['a' + A] = !full ? null : mode === 'ret' ? (A === 0 ? 1 : t.ret[A] / t.tot) : mode === 'roas' ? t.rev[A] / t.spend : t.rev[A] / t.tot; }); return r; });
+  const vals = rows.flatMap(r => AGES.filter(a => mode !== 'ret' || a > 0).map(a => r['a' + a])).filter(v => v != null);
+  const mx = Math.max(...vals), mn = Math.min(...vals);
+  const bg = v => v == null ? '' : `background:hsla(258,60%,${92 - 40 * ((v - mn) / ((mx - mn) || 1))}%,1);${(v - mn) / ((mx - mn) || 1) > .6 ? 'color:#fff' : ''}`;
+  const fmtC = v => v == null ? '·' : mode === 'ret' ? fmtP(v) : mode === 'roas' ? fmtPctX(v) : fmtM1(v);
+  const html = `
+  ${card('🧊 同期分析（依安裝日）', table('tCoh', [{ k: 'label', h: '安裝日', l: 1 }, { k: 'inst', h: '安裝', f: fmtN }, { k: 'cpi', h: 'CPI', f: fmtM1 },
+      ...AGES.map(A => ({ k: 'a' + A, h: 'D' + A, f: fmtC, bg: (v) => mode === 'ret' && A === 0 ? '' : bg(v), cls: 'c', na: 1 }))], rows), {
+    cls: 'heat', note: '「·」＝ 該安裝日還沒滿 N 天',
+    right: seg('cohMode', [['ret', '留存率'], ['roas', '累積 ROAS'], ['ltv', '累積 LTV']]) + seg('cohGran', [['day', '日'], ['week', '週']]) })}
+  <div class="legend-note">留存 = 第 N 天仍有登入的玩家 ÷ 安裝數（AppsFlyer）；累積 ROAS = 該批玩家到第 N 天的累積儲值（後台）÷ 當日花費；LTV = 累積儲值 ÷ 安裝數。</div>`;
+  return { html: html.replace('class="tbl-wrap ', 'class="tbl-wrap heat '), draw() {} };
+};
+
+/* ---------- 全期間回收 ---------- */
+Views.timeline = () => {
+  const days = cur(); if (!days.length) return empty('沒有資料');
+  const pre = days.filter(d => d.phase === 'prereg'), post = days.filter(d => d.phase === 'launch');
+  const sp = d => sum(MIDS, id => d.media[id].spend);
+  const spendPre = sum(pre, sp), spendPost = sum(post, sp), rev = sum(post, 'rev'), regs = sum(pre, 'regs'), inst = sum(post, 'newU');
+  const html = `
+  <div class="kpis">
+    ${kpi('總廣告花費', fmtM(spendPre + spendPost), null, null, { color: 'var(--blue)', extra: `預約期 ${fmtM(spendPre)}・上市後 ${fmtM(spendPost)}` })}
+    ${kpi('預約數', fmtN(regs), null, null, { color: 'var(--purple)', extra: `CPA ${fmtM1(spendPre / regs)}` })}
+    ${kpi('上市後下載', fmtN(inst), null, null, { color: 'var(--blue)' })}
+    ${kpi('上市後營收', fmtM(rev), null, null, { color: 'var(--pink)' })}
+    ${kpi('整體回收率', fmtP(rev / (spendPre + spendPost)), null, null, { alt: 1, color: 'var(--pos)', extra: '營收 ÷（預約期＋上市後花費）' })}
+  </div>
+  ${card('📅 全期間每日走勢', canvas('cTl'), { note: '粉紅虛線 = 上市日' })}
+  ${card('💹 累積花費 vs 累積營收（回本進度）', canvas('cPay'), { note: '兩條線交叉的那天就是回本日' })}`;
+  const draw = () => {
+    const lbl = days.map(d => d.date), li = lbl.indexOf(CFG.launchDate);
+    combo('cTl', lbl, [{ label: '廣告花費', data: days.map(sp), color: 'rgba(74,127,240,.35)', border: '#4a7ff0' }],
+      [{ label: '預約數', data: days.map(d => d.phase === 'prereg' ? d.regs : null), color: '#7b5cd6', fmt: fmtN, tick: numTick },
+       { label: '下載數', data: days.map(d => d.phase === 'launch' ? d.newU : null), color: '#2fb5b0', fmt: fmtN, tick: numTick }],
+      { plugins: [vLine(li, '🚀 上市')] });
+    let cs = 0, cr = 0;
+    combo('cPay', lbl, [], [
+      { label: '累積花費', data: days.map(d => (cs += sp(d))), color: '#4a7ff0', axis: 'y', fmt: fmtM },
+      { label: '累積營收', data: days.map(d => (cr += d.phase === 'launch' ? d.rev : 0)), color: '#d6338a', axis: 'y', fmt: fmtM }], { plugins: [vLine(li, '🚀 上市')] });
+  };
+  return { html, draw };
+};
+
+/* =====================================================================
+ *  階段 / 日期 / 渲染
+ * ===================================================================== */
+const PHASES = {
+  prereg: { label: '🗓 預約期', start: CFG.preregStart, end: PREREG_END, presets: [['all', '預約全期'], ['last7', '最後7天'], ['last30', '最後30天']] },
+  launch: { label: '🚀 上市後', start: CFG.launchDate, end: DATA_END, presets: [['7', '近7天'], ['30', '近30天'], ['all', '上市至今'], ['yesterday', '昨天']] },
+  all:    { label: '📈 全期間', start: CFG.preregStart, end: DATA_END, presets: [['all', '全期間']] },
+};
+function setPreset(p) {
+  const ph = PHASES[state.phase]; state.preset = p;
+  if (p === 'all') { state.from = ph.start; state.to = ph.end; }
+  else if (p === 'yesterday') { state.from = state.to = ph.end; }
+  else { const n = Number(String(p).replace('last', '')); state.to = ph.end; state.from = addDays(ph.end, -(n - 1)); }
+  if (state.from < ph.start) state.from = ph.start;
+  syncToolbar();
+}
+function syncToolbar() {
+  const ph = PHASES[state.phase];
+  document.getElementById('presets').innerHTML = ph.presets.map(([v, l]) => `<button class="pill ${v === state.preset ? 'on' : ''}" data-preset="${v}">${l}</button>`).join('');
+  for (const id of ['dFrom', 'dTo']) { const el = document.getElementById(id); el.min = ph.start; el.max = ph.end; }
+  document.getElementById('dFrom').value = state.from; document.getElementById('dTo').value = state.to;
+}
+function renderPhaseBar() {
+  const n = daysBetween(CFG.launchDate, DATA_END), left = daysBetween(TODAY, CFG.launchDate) - 1;
+  document.getElementById('phaseBar').innerHTML = Object.entries(PHASES).map(([k, v]) =>
+    `<button data-phase="${k}" class="${k === state.phase ? 'on' : ''}" ${k !== 'prereg' && !LAUNCHED ? 'disabled title="尚未上市"' : ''}>${v.label}</button>`).join('') +
+    `<div class="info">開放預約 ${CFG.preregStart}　·　上市日 ${CFG.launchDate}　·　${LAUNCHED ? `上市第 <b>${n}</b> 天` : `距上市 <b>${left}</b> 天`}</div>`;
+}
+function renderTabs() {
+  const tabs = CFG.tabs[state.phase];
+  if (!tabs.find(t => t.id === state.tab)) state.tab = tabs[0].id;
+  document.getElementById('tabs').innerHTML = tabs.map(t => `<button data-tab="${t.id}" class="${t.id === state.tab ? 'on' : ''}">${t.label}</button>`).join('');
+}
+function render() {
+  Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; });
+  const v = Views[state.tab]();
+  document.getElementById('main').innerHTML = v.html;
+  v.draw();
+}
+async function loadData() {
+  const main = document.getElementById('main'); main.classList.add('loading');
+  document.getElementById('status').textContent = '⏳ 讀取中…';
+  const n = daysBetween(state.from, state.to), pFrom = addDays(state.from, -n), pTo = addDays(state.from, -1);
+  const ph = PHASES[state.phase], hasPrev = state.phase !== 'all' && pFrom >= ph.start;
+  const [c, p] = await Promise.all([DataSource.load(state.from, state.to), hasPrev ? DataSource.load(pFrom, pTo) : Promise.resolve([])]);
+  state.raw = c; state.rawPrev = p;
+  document.getElementById('status').textContent = `✓ 完成・${state.from} ~ ${state.to}（${n} 天）・` + (hasPrev ? `比較區間 ${pFrom} ~ ${pTo}` : '此區間沒有可比較的前期（已到階段起點）');
+  main.classList.remove('loading');
+  render();
+}
+
+function init() {
+  document.title = CFG.gameName ? `${CFG.gameName} 成效儀表板` : '遊戲成效儀表板';
+  const brandEl = document.getElementById('brandName');
+  if (CFG.gameName) { brandEl.firstChild.textContent = CFG.gameName; document.getElementById('brandSub').textContent = CFG.gameSub || ''; }
+  else brandEl.remove();
+  document.getElementById('lastUpdate').textContent = DATA_END;
+  document.getElementById('demoBadge').classList.toggle('hidden', !CFG.showDemoBadge);
+  document.documentElement.style.setProperty('--accent', CFG.accent);
+  document.documentElement.style.setProperty('--accent-dark', CFG.accentDark);
+
+  document.getElementById('phaseBar').onclick = e => { const b = e.target.closest('[data-phase]'); if (!b || b.disabled) return;
+    state.phase = b.dataset.phase; renderPhaseBar(); renderTabs(); setPreset(PHASES[state.phase].presets[0][0]); loadData(); };
+  document.getElementById('tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (!b) return; state.tab = b.dataset.tab; renderTabs(); render(); };
+  document.getElementById('presets').onclick = e => { const b = e.target.closest('[data-preset]'); if (!b) return; setPreset(b.dataset.preset); loadData(); };
+  document.getElementById('dFrom').onchange = e => { state.from = e.target.value; state.preset = null; syncToolbar(); };
+  document.getElementById('dTo').onchange = e => { state.to = e.target.value; state.preset = null; syncToolbar(); };
+  document.getElementById('btnRefresh').onclick = () => {
+    const ph = PHASES[state.phase];
+    if (state.from > state.to) return alert('起始日不能晚於結束日');
+    if (state.from < ph.start || state.to > ph.end) return alert(`此階段可選範圍：${ph.start} ~ ${ph.end}`);
+    loadData();
+  };
+  document.getElementById('platSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; state.plat = b.dataset.v;
+    document.querySelectorAll('#platSeg button').forEach(x => x.classList.toggle('on', x === b)); render(); };
+
+  const main = document.getElementById('main');
+  main.addEventListener('click', e => {
+    const sb = e.target.closest('[data-seg] button');
+    if (sb) { state.gran[sb.parentElement.dataset.seg] = sb.dataset.v; render(); return; }
+    const tg = e.target.closest('[data-tog]');
+    if (tg) { const [tid, rid] = tg.dataset.tog.split('|'); const k = `${tid}-open-${rid}`; state.filters[k] = !state.filters[k]; refreshTable(tid); return; }
+    const th = e.target.closest('th[data-sort]');
+    if (th) { const [tid, k] = th.dataset.sort.split('|'); const t = tables[tid]; t.sort = t.sort && t.sort.k === k ? { k, dir: -t.sort.dir } : { k, dir: -1 }; refreshTable(tid); }
+  });
+  main.addEventListener('change', e => { if (e.target.id === 'crMedia') { state.filters.crMedia = e.target.value; render(); } });
+
+  renderPhaseBar(); renderTabs(); setPreset(PHASES[state.phase].presets[0][0]); loadData();
+}
+init();
+</script>
+</body>
+</html>
