@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>金融成效儀表板</title>
+<style>
+:root{--ink:#1E1C1A;--ink2:#3A3632;--bg:#F8F1E6;--card:#fff;--gold:#C9A45C;--red:#D9381E;--grey:#8A8580;--sand:#E6D9C2;--brown:#8A6630;--line:#EDE3D2;--ok:#2E7D32}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink);font-size:13px}
+header{background:var(--ink2);color:#fff;padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:18px;color:var(--gold)}
+header .sub{font-size:11px;color:var(--sand)}
+.ctrl{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;background:#fff;border-radius:6px;overflow:hidden;border:1px solid var(--sand)}
+.seg button{border:0;border-right:1px solid var(--sand);border-radius:0;padding:5px 10px;background:#fff}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--gold);color:#fff;font-weight:700}
+select,button{font:inherit;border-radius:6px;border:1px solid var(--sand);padding:5px 10px;background:#fff;color:var(--ink);cursor:pointer}
+button.primary{background:var(--gold);border-color:var(--gold);color:#fff;font-weight:700}
+nav{display:flex;gap:4px;padding:10px 20px 0;max-width:1320px;margin:0 auto;flex-wrap:wrap}
+nav .t{padding:8px 14px;border-radius:8px 8px 0 0;cursor:pointer;font-weight:700;color:var(--ink2);background:#EFE5D3}
+nav .t.on{background:var(--card);color:var(--brown)}
+main{padding:0 20px 24px;max-width:1320px;margin:0 auto}
+.page{background:var(--card);border-radius:0 10px 10px 10px;padding:14px}
+.tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:12px}
+.tile{background:var(--bg);border-radius:8px;padding:8px 10px}
+.tile .k{font-size:11px;color:var(--grey)}
+.tile .v{font-size:18px;font-weight:800;margin-top:2px;white-space:nowrap}
+.tile .d{font-size:11px;font-weight:700}
+.tile.src{box-shadow:inset 0 3px 0 var(--gold)}
+.up{color:var(--ok)}.down{color:var(--red)}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.box h3{margin:0 0 6px;font-size:14px;color:var(--ink2)}
+.hint{font-size:11px;color:var(--grey);margin:0 0 6px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:right;color:var(--grey);font-weight:700;border-bottom:1px solid var(--line);padding:6px 5px;white-space:nowrap}
+th[data-s]{cursor:pointer;text-decoration:underline dotted}
+th:first-child,td:first-child{text-align:left}
+td{border-bottom:1px solid #F5EEE2;padding:6px 5px;text-align:right;white-space:nowrap}
+td.l{text-align:left}
+tr.tot td{font-weight:800;background:#FBF7F0}
+.tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10.5px;font-weight:700;color:#fff;margin-right:3px}
+.good{background:var(--ok)}.bad{background:var(--red)}.mid{background:var(--grey)}.warn{background:#D9A21E}.L1{background:#D9B98A}.L2{background:var(--gold)}.L3{background:var(--brown)}.top{background:#D9B98A;color:#3A3632}.midl{background:var(--gold)}.low{background:var(--ink2)}
+.legend{display:flex;gap:12px;font-size:11px;color:var(--ink2);margin-top:4px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.alert{border-left:4px solid var(--red);background:#FFF5F2;padding:7px 9px;border-radius:6px;margin-bottom:7px;cursor:pointer}
+.alert.y{border-color:var(--gold);background:#FFFAF0}
+.alert b{display:block;font-size:12px}.alert span{font-size:11px;color:var(--ink2)}
+.creatives{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.cr{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:11.5px}
+.cr .img{height:120px;padding:10px;display:flex;flex-direction:column;justify-content:space-between}
+.cr .img b{font-size:15px;line-height:1.3}
+.cr .img small{font-size:9px;opacity:.8}
+.cr .meta{padding:7px 8px}
+.cr .meta div{display:flex;justify-content:space-between}
+.chips span{display:inline-block;margin:3px;padding:3px 9px;border-radius:12px;background:var(--bg);font-weight:700}
+.chk{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:8px 6px;border-bottom:1px solid #F5EEE2;cursor:pointer}
+.chk:hover{background:#FBF7F0}
+.dot{width:14px;height:14px;border-radius:50%}
+.chk .n{font-weight:700}.chk .s{font-size:11px;color:var(--grey)}
+.chk .v{text-align:right;font-weight:800}
+.sum{display:flex;gap:10px;margin-bottom:12px}
+.sum div{flex:1;border-radius:8px;padding:10px 12px;color:#fff;font-weight:800;font-size:15px}
+.modal{position:fixed;inset:0;background:rgba(30,28,26,.55);display:none;align-items:center;justify-content:center;z-index:9}
+.modal.on{display:flex}
+.phone{width:300px;background:#1E1C1A;border-radius:28px;padding:12px}
+.screen{background:#8CABD9;border-radius:18px;padding:12px;min-height:460px}
+.bubble{background:#fff;border-radius:14px;padding:10px 12px;font-size:12.5px;line-height:1.55;margin-top:8px}
+.bubble h4{margin:0 0 6px;color:var(--brown)}
+.who{font-size:11px;color:#fff;font-weight:700}
+.info{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--sand);color:var(--ink2);font-size:10px;text-align:center;line-height:14px;cursor:help;margin-left:3px}
+@media (max-width:1000px){.tiles{grid-template-columns:repeat(4,1fr)}.grid2,.grid3{grid-template-columns:1fr}.creatives{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:640px){
+  header{position:static;padding:10px 12px}
+  header h1{font-size:16px}
+  .ctrl{gap:6px}
+  .ctrl select{flex:1 1 45%;min-width:0}
+  .ctrl .seg{flex:0 0 auto}
+  .ctrl button.primary{flex:1 1 100%}
+  nav{flex-wrap:nowrap;overflow-x:auto;padding:8px 10px 0;position:sticky;top:0;z-index:5;background:var(--bg)}
+  nav .t{white-space:nowrap;padding:8px 12px}
+  main{padding:0 10px 24px}
+  .page{padding:10px;border-radius:0 0 10px 10px}
+  .tiles,.page .tiles[style]{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+  .tile .v{font-size:16px;white-space:normal;overflow-wrap:anywhere}
+  .grid2,.grid3{grid-template-columns:minmax(0,1fr) !important}
+  .grid2>div,.grid3>div{min-width:0}
+  .box{overflow-x:auto;padding:10px}
+  .sum{flex-wrap:wrap}
+  .sum div{flex:1 1 40%;font-size:13px}
+  .creatives{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .box div[style*="grid-template-columns:130px"]{grid-template-columns:96px 1fr !important}
+  .box div[style*="grid-template-columns:130px"] span{grid-column:1/-1;color:var(--grey)}
+  .phone{width:min(300px,92vw)}
+}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>金融成效儀表板</h1><div class="sub">示意資料｜Meta、Google、LINE、情境媒體每日 08:30 更新｜銀行回填每週一</div></div>
+  <div class="ctrl">
+    <div class="seg" id="range"><button data-v="7">近 7 天</button><button data-v="14">近 14 天</button><button data-v="30" class="on">近 30 天</button><button data-v="60">近 60 天</button></div>
+    <div class="seg" id="gran"><button data-v="d" class="on">日</button><button data-v="w">週</button></div>
+    <select id="media"><option value="all">全部媒體</option><option>Meta</option><option>Google</option><option>LINE</option><option>情境媒體</option></select>
+    <select id="layer"><option value="all">全部層級</option><option value="上">上層｜認知</option><option value="中">中層｜導流</option><option value="下">下層｜轉換</option></select>
+    <select id="kpi"><option value="all">全部 KPI</option><option>帳戶開戶</option><option>信用卡</option><option>銀證雙開</option></select>
+    <select id="ta"><option value="all">全部族群</option><option>練習生</option><option>資優生</option></select>
+    <button class="primary" id="pushBtn">預覽 LINE 推播</button>
+  </div>
+</header>
+<nav id="nav">
+  <div class="t on" data-v="overview">總覽</div><div class="t" data-v="health">健檢</div><div class="t" data-v="campaign">媒體與活動</div><div class="t" data-v="audience">受眾</div><div class="t" data-v="creative">素材</div><div class="t" data-v="group">分組追蹤</div><div class="t" data-v="ga4">官網流量與行為</div><div class="t" data-v="voice">聲量與輿情</div>
+</nav>
+<main><div class="page" id="page"></div></main>
+<div class="modal" id="modal"><div class="phone"><div class="screen" id="phone"></div><div style="text-align:center;margin-top:10px"><button id="closeBtn">關閉</button></div></div></div>
+<script>
+// ===== 假資料（固定種子） =====
+let seed = 11; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+const N = 60, END = new Date(2027, 1, 10);
+const DATES = Array.from({ length: N }, (_, i) => { const d = new Date(END); d.setDate(d.getDate() - (N - 1 - i)); return d; });
+const PEAK = (i) => (i >= N - 26 ? 1.35 : 1);
+const CAMPS = [
+  ["情境媒體", "LINE Beacon", "Beacon_上層_北捷演唱會", "上", "認知", "場域曝光", "練習生", 900, 220, 0.013, 0],
+  ["Meta", "Meta", "Meta_中層_練習生_流量", "中", "導流", "連結點擊", "練習生", 1900, 120, 0.014, 0.004],
+  ["Meta", "Meta", "Meta_中層_資優生_流量", "中", "導流", "連結點擊", "資優生", 1600, 140, 0.012, 0.004],
+  ["Meta", "Meta", "Meta_下層_練習生_申辦", "下", "轉換", "申辦完成", "練習生", 5200, 210, 0.011, 0.07],
+  ["Meta", "Meta", "Meta_下層_資優生_申辦", "下", "轉換", "申辦完成", "資優生", 4300, 240, 0.010, 0.075],
+  ["Meta", "Meta", "Meta_下層_再行銷_官網行為", "下", "轉換", "申辦完成", "全部", 2100, 260, 0.016, 0.12],
+  ["Google", "SEM", "SEM_品牌字", "下", "轉換", "申辦完成", "全部", 3100, 0, 0.12, 0.16],
+  ["Google", "SEM", "SEM_情境字_練習生", "下", "轉換", "申辦完成", "練習生", 3600, 0, 0.065, 0.075],
+  ["Google", "SEM", "SEM_比較字_資優生", "下", "轉換", "申辦完成", "資優生", 3300, 0, 0.055, 0.07],
+  ["Google", "PMax", "PMax_數位帳戶", "下", "轉換", "申辦完成", "全部", 4100, 60, 0.008, 0.06],
+  ["Google", "PMax", "PMax_信用卡", "下", "轉換", "申辦完成", "全部", 3500, 65, 0.007, 0.055],
+  ["Google", "Demand Gen", "DG_中層_比較期攔截", "中", "導流", "網站流量", "全部", 700, 70, 0.008, 0.003],
+  ["Google", "Demand Gen", "DG_中層_類似區隔", "中", "導流", "網站流量", "全部", 700, 90, 0.01, 0.003],
+  ["LINE", "LINE LAP", "LAP_中層_開學季導流", "中", "導流", "網站流量", "練習生", 700, 75, 0.009, 0.003],
+  ["LINE", "LINE LAP", "LAP_中層_Beacon受眾再行銷", "中", "導流", "網站流量", "資優生", 650, 90, 0.013, 0.006],
+  ["情境媒體", "LINE Beacon", "Beacon_上層_三大機場", "上", "認知", "場域曝光", "資優生", 1000, 220, 0.015, 0],
+  ["情境媒體", "三竹股市", "三竹_上層_首頁置頂", "上", "認知", "置頂曝光", "資優生", 650, 180, 0.009, 0],
+  ["情境媒體", "TenMax pDOOH", "TenMax_上層_校園門市", "上", "認知", "門市曝光", "練習生", 600, 280, 0, 0],
+].map(([media, plat, name, layer, type, goal, ta, bud, cpm, ctr, cvr]) => ({ media, plat, name, layer, type, goal, ta, bud, cpm, ctr, cvr, open: 0.5 + rnd() * 0.25 }));
+// 每個活動對應的 KPI 目標
+const PROD = { "Meta_下層_練習生_申辦": "帳戶開戶", "Meta_下層_資優生_申辦": "信用卡", "SEM_情境字_練習生": "帳戶開戶", "SEM_比較字_資優生": "信用卡", "PMax_數位帳戶": "帳戶開戶", "PMax_信用卡": "信用卡", "Meta_中層_練習生_流量": "銀證雙開", "Meta_下層_再行銷_官網行為": "帳戶開戶" };
+CAMPS.forEach((c) => { c.prod = PROD[c.name] || "全部"; });
+const ROWS = [];
+CAMPS.forEach((c, ci) => DATES.forEach((d, i) => {
+  const spend = Math.round(c.bud * PEAK(i) * (0.8 + rnd() * 0.4) * (ci === 3 && i === N - 3 ? 1.3 : 1));
+  const cpc = c.plat === "SEM" ? 18 + rnd() * 14 : 0;
+  const imp = c.plat === "SEM" ? Math.round(spend / cpc / c.ctr) : Math.round(spend / c.cpm * 1000);
+  const clk = Math.round(imp * c.ctr * (0.85 + rnd() * 0.3));
+  const app = Math.round(clk * c.cvr * (0.8 + rnd() * 0.4) * (ci === 3 && i === N - 3 ? 0.55 : 1));
+  ROWS.push({ ci, i, spend, imp, clk, app, open: Math.round(app * c.open), card: Math.round(app * c.open * (c.ta === "資優生" ? 0.5 : 0.25)) });
+}));
+const AUD = [
+  ["練習生 18–24", "Meta", "練習生", "興趣"], ["練習生 25–29", "Meta", "練習生", "興趣"], ["資優生 30–39", "Meta", "資優生", "興趣"], ["資優生 40–49", "Meta", "資優生", "興趣"],
+  ["網站高意圖包 類似 1%", "Meta", "全部", "受眾包・獨家"], ["校園早八包 再行銷", "Meta", "練習生", "受眾包・獨家"], ["機場候機包 再行銷", "LINE", "資優生", "受眾包"], ["追星搶票包 再行銷", "LINE", "練習生", "受眾包"],
+  ["開盤看盤包 再行銷", "Google", "資優生", "受眾包"], ["申辦意圖包｜點過申辦未到感謝頁", "Meta", "全部", "再行銷"], ["自訂區隔｜搜尋過數位帳戶比較", "Google", "全部", "意圖"], ["品牌字搜尋者", "Google", "全部", "搜尋"],
+].map(([n, m, ta, k]) => { const sp = Math.round(30000 + rnd() * 90000), cpa = Math.round(320 + rnd() * 420 * (k.includes("獨家") ? 0.6 : 1)); return { n, m, ta, k, sp, app: Math.round(sp / cpa), cpa, rate: 0.42 + rnd() * 0.3, size: Math.round(3000 + rnd() * 60000) }; });
+const AGES = [["18–24", 0.21], ["25–29", 0.2], ["30–34", 0.18], ["35–39", 0.15], ["40–44", 0.12], ["45–49", 0.08], ["50+", 0.06]].map(([a, s], k) => ({ a, sp: s, app: s * (k < 2 ? 1.15 : k === 6 ? 0.6 : 0.95) * (0.9 + rnd() * 0.2) }));
+const CR = [
+  ["不問家人也能懂", "理財資訊自己查？從看得懂的第一步開始", "L1", "練習生", "IG 限動", "#C9A45C", 4.1], ["第一筆不浪費", "本來就要買的第一張 ETF，順便升等", "L2", "練習生", "單圖", "#E6D9C2", 2.2],
+  ["開戶直接升等", "新戶直接享最高等級權益，一路到次月底", "L3", "練習生", "單圖", "#3A3632", 2.6], ["出國換匯好上手", "追演唱會換日幣 5,000 就能升等", "L2", "練習生", "輪播", "#D9B98A", 1.9],
+  ["三條路擇一升等", "換匯 5,000 也算｜輿情新切角", "L2", "練習生", "輪播", "#F8F1E6", 1.6], ["錢不是不夠，是太散", "分開放的錢加起來算", "L1", "資優生", "單圖", "#8A6630", 3.1],
+  ["同一張卡差 2.5%", "你的卡只回饋 1%？", "L2", "資優生", "單圖", "#C9A45C", 2.4], ["年終入帳就升級", "年終補到 30 萬，下個月起 3.5%", "L3", "資優生", "單圖", "#3A3632", 2.0],
+  ["出國前先換一筆", "換匯 5,000 就能升等｜謹慎理財 信用至上", "L3", "資優生", "LINE Beacon", "#6B645C", 1.8], ["一張圖看懂升等", "三條路，挑最順手的｜輿情新切角", "L1", "資優生", "輪播", "#E6D9C2", 1.5],
+].map(([h, s, l, ta, f, bg, freq]) => { const imp = Math.round(80000 + rnd() * 320000), ctr = 0.006 + rnd() * 0.014, clk = Math.round(imp * ctr), app = Math.round(clk * (0.03 + rnd() * 0.06)), sp = Math.round(imp * (0.12 + rnd() * 0.1)); return { h, s, l, ta, f, bg, imp, ctr, clk, app, sp, freq }; });
+const VOICE = DATES.map((d, i) => { const pk = i >= N - 26 && i <= N - 18 ? 2.2 : 1; const tot = Math.round((60 + rnd() * 40) * pk); const neg = Math.round(tot * (i >= N - 26 && i <= N - 20 ? 0.32 : 0.15 + rnd() * 0.06)); const pos = Math.round(tot * (0.3 + rnd() * 0.08)); return { d, tot, neg, pos, mid: tot - neg - pos, search: Math.round((2800 + rnd() * 700) * (i >= N - 26 ? 1.45 : 1)) }; });
+const COMP = [["本品牌", 0.15], ["競品 A", 0.31], ["競品 B", 0.33], ["競品 C", 0.16], ["競品 D", 0.05]];
+const TOPICS = [["#升級", 3], ["#門檻", 3], ["#權益", 3], ["#信用卡", 2], ["#換匯", 2], ["#30萬", 2], ["#數位帳戶推薦", 1], ["#演唱會優先購", 1], ["#ETF", 1], ["#活儲1.5%", 1]];
+// 健檢：各維度檢核點（燈號由規則判斷）
+const CHECKS = [
+  ["關鍵字", "無效搜尋字詞花費佔比", "6.8%", "≤ 5%", "y", "本週有 12 個字詞建議排除", { tab: "campaign", media: "Google" }],
+  ["關鍵字", "品牌字曝光份額", "92%", "≥ 90%", "g", "品牌字守住", { tab: "campaign", media: "Google" }],
+  ["關鍵字", "競品出價搶品牌字", "2 家", "0 家", "y", "競品 A、競品 C 出現在品牌字結果", { tab: "campaign", media: "Google" }],
+  ["素材", "頻率過高（> 3.5）", "1 支", "0 支", "r", "「不問家人也能懂」頻率 4.1", { tab: "creative" }],
+  ["素材", "點擊率連 5 天下滑", "2 支", "0 支", "y", "練習生共鳴素材兩支", { tab: "creative" }],
+  ["素材", "權益到期前 14 天未換新", "3 支", "0 支", "y", "7 月新權益素材需排入客戶送審", { tab: "creative" }],
+  ["受眾", "受眾包規模不足（< 1,000 人）", "0 包", "0 包", "g", "各包規模正常", { tab: "audience" }],
+  ["受眾", "跨活動受眾重疊", "18%", "≤ 20%", "g", "Meta 練習生上中層重疊可接受", { tab: "audience" }],
+  ["預算", "月預算消耗 vs 時間進度", "58% / 55%", "差距 ≤ 5%", "g", "整體節奏正常", { tab: "campaign" }],
+  ["預算", "單一活動消耗過快", "1 個", "0 個", "y", "Beacon 機場檔已用 82%", { tab: "campaign", media: "情境媒體" }],
+  ["出價", "學習期中的活動", "2 個", "≤ 1 個", "y", "Meta 下層兩檔調整後重新學習", { tab: "campaign", media: "Meta" }],
+  ["追蹤", "申辦事件回傳", "正常", "正常", "g", "Meta CAPI、Google 轉換皆正常", { tab: "campaign" }],
+  ["追蹤", "銀行開戶回填", "本週未到", "每週一", "r", "已通知客戶窗口", { tab: "group" }],
+  ["分組", "通過率低於平均的組", "2 組", "0 組", "r", "SEM 比較字、LAP 開學季", { tab: "group" }],
+  ["聲量", "負評佔比", "22%", "≤ 20%", "y", "權益公布後「門檻」討論升高", { tab: "voice" }],
+  ["網站", "權益頁到點申辦的比例", "31%", "≥ 35%", "y", "手機比桌機低 5 個百分點", { tab: "ga4" }],
+  ["網站", "付費流量跳出率", "41%", "≤ 45%", "g", "到達頁承接正常", { tab: "ga4" }],
+];
+
+// ===== 狀態與工具 =====
+const st = { kpi: "all", range: 30, gran: "d", media: "all", layer: "all", ta: "all", tab: (location.hash.match(/tab=(\w+)/) || [])[1] || "overview", sort: "spend" };
+const $ = (s) => document.querySelector(s);
+const fmt = (n) => Math.round(n).toLocaleString("zh-TW");
+const pct = (n, d = 1) => (n * 100).toFixed(d) + "%";
+const camOk = (c) => (st.kpi === "all" || c.prod === st.kpi) && (st.media === "all" || c.media === st.media) && (st.layer === "all" || c.layer === st.layer) && (st.ta === "all" || c.ta === st.ta || c.ta === "全部");
+const inRange = (i, off = 0) => i >= N - st.range * (off + 1) && i < N - st.range * off;
+function agg(f, off = 0) { const a = { spend: 0, imp: 0, clk: 0, app: 0, open: 0, card: 0 }; ROWS.forEach((r) => { if (inRange(r.i, off) && f(CAMPS[r.ci])) for (const k in a) a[k] += r[k]; }); return a; }
+const delta = (c, p) => (p ? c / p - 1 : 0);
+const dHtml = (d, inv) => Math.abs(d) < 0.0005 ? `<span class="d">— 持平</span>` : `<span class="d ${(inv ? d < 0 : d > 0) ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${pct(Math.abs(d))}</span>`;
+function series(f, key) {
+  const out = [], idx = DATES.map((_, i) => i).filter((i) => inRange(i)), b = st.gran === "w" ? 7 : 1;
+  for (let k = 0; k < idx.length; k += b) { const g = idx.slice(k, k + b); let v = 0; ROWS.forEach((r) => { if (g.includes(r.i) && f(CAMPS[r.ci])) v += r[key]; }); out.push({ d: DATES[g[0]], v }); }
+  return out;
+}
+function lineSvg(sets, W = 760, H = 220) {
+  const n = sets[0].data.length, pad = 34, x = (i) => pad + (n === 1 ? 0 : (i / (n - 1)) * (W - pad * 2));
+  let s = "";
+  sets.forEach((set) => {
+    const m = Math.max(...set.data.map((p) => p.v), 1);
+    if (set.bar) { const bw = (W - pad * 2) / n * 0.7; set.data.forEach((p, i) => { const h = (p.v / m) * (H - 50); s += `<rect x="${x(i) - bw / 2}" y="${H - 26 - h}" width="${bw}" height="${h}" fill="${set.c}"/>`; }); }
+    else s += `<polyline points="${set.data.map((p, i) => `${x(i)},${H - 26 - (p.v / m) * (H - 50)}`).join(" ")}" fill="none" stroke="${set.c}" stroke-width="2.4"/>`;
+  });
+  sets[0].data.forEach((p, i) => { if (i % Math.ceil(n / 8) === 0) s += `<text x="${x(i) - 10}" y="${H - 8}" font-size="10" fill="#8A8580">${p.d.getMonth() + 1}/${p.d.getDate()}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
+}
+function donut(parts, size = 120) {
+  const tot = parts.reduce((s, p) => s + p.v, 0); let a = -Math.PI / 2, s = ""; const r = size / 2 - 6, c = size / 2;
+  parts.forEach((p) => { const b = a + (p.v / tot) * Math.PI * 2; s += `<path d="M${c},${c} L${c + r * Math.cos(a)},${c + r * Math.sin(a)} A${r},${r} 0 ${b - a > Math.PI ? 1 : 0} 1 ${c + r * Math.cos(b)},${c + r * Math.sin(b)} Z" fill="${p.c}"/>`; a = b; });
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}">${s}<circle cx="${c}" cy="${c}" r="${r * 0.55}" fill="#fff"/></svg>`;
+}
+const MC = { Meta: "#8A6630", Google: "#C9A45C", LINE: "#6B645C", "情境媒體": "#D9B98A" };
+const layerTag = (l) => `<span class="tag ${l === "上" ? "top" : l === "中" ? "midl" : "low"}">${l}層</span>`;
+const LIGHT = { g: "#2E7D32", y: "#D9A21E", r: "#D9381E" };
+
+// ===== 頁面 =====
+function tiles() {
+  const c = agg(camOk), p = agg(camOk, 1);
+  const T = [
+    ["媒體花費", "NT$ " + fmt(c.spend), delta(c.spend, p.spend)], ["曝光", fmt(c.imp), delta(c.imp, p.imp)], ["點擊", fmt(c.clk), delta(c.clk, p.clk)], ["申辦完成", fmt(c.app), delta(c.app, p.app)],
+    ["申辦成本", "NT$ " + fmt(c.spend / Math.max(c.app, 1)), delta(c.spend / Math.max(c.app, 1), p.spend / Math.max(p.app, 1)), 1],
+    ["開戶（銀行回填）", fmt(c.open), delta(c.open, p.open), 0, 1], ["核卡（銀行回填）", fmt(c.card), delta(c.card, p.card), 0, 1],
+    ["品牌字搜尋量<span class='info' title='Google 上搜尋品牌名稱的次數：代表主動找品牌的人有多少'>?</span>", fmt(VOICE.slice(-st.range).reduce((s, v) => s + v.search, 0)), 0.18, 0, 1],
+  ];
+  return `<div class="tiles">${T.map(([k, v, d, inv, src]) => `<div class="tile ${src ? "src" : ""}"><div class="k">${k}</div><div class="v">${v}</div>${dHtml(d, inv)}<span style="font-size:10px;color:#8A8580"> vs 前期</span></div>`).join("")}</div>`;
+}
+function alertsHtml() {
+  const A = CHECKS.filter((c) => c[4] !== "g").sort((a, b) => (a[4] === "r" ? -1 : 1) - (b[4] === "r" ? -1 : 1)).slice(0, 6);
+  return `<h3>需要處理 <span class="tag bad">${CHECKS.filter((c) => c[4] !== "g").length}</span></h3>` + A.map((c) => `<div class="alert ${c[4] === "r" ? "" : "y"}" data-go='${JSON.stringify(c[6])}'><b>${c[4] === "r" ? "🔴" : "🟡"} ${c[0]}｜${c[1]}</b><span>${c[5]}</span></div>`).join("") + `<p class="hint">完整檢核清單在「健檢」頁</p>`;
+}
+function mediaTable() {
+  const rows = ["Meta", "Google", "LINE", "情境媒體"].map((m) => ({ m, ...agg((c) => camOk(c) && c.media === m) })).filter((r) => r.spend);
+  const tot = rows.reduce((a, r) => { for (const k of ["spend", "imp", "clk", "app", "open", "card"]) a[k] = (a[k] || 0) + r[k]; return a; }, { m: "合計" });
+  const tr = (r, cls = "") => `<tr class="${cls}"><td>${r.m}</td><td>${fmt(r.spend)}</td><td>${pct(r.spend / tot.spend)}</td><td>${fmt(r.imp)}</td><td>${fmt(r.clk)}</td><td>${pct(r.clk / Math.max(r.imp, 1), 2)}</td><td>${fmt(r.spend / Math.max(r.clk, 1))}</td><td>${fmt(r.app)}</td><td>${r.app ? fmt(r.spend / r.app) : "—"}</td><td>${fmt(r.open)}</td><td>${fmt(r.card)}</td><td>${r.app ? pct(r.open / r.app, 0) : "—"}</td></tr>`;
+  return `<table><tr><th>媒體</th><th>花費</th><th>佔比</th><th>曝光</th><th>點擊</th><th>CTR</th><th>CPC</th><th>申辦</th><th>申辦成本</th><th>開戶</th><th>核卡</th><th>通過率</th></tr>${rows.map((r) => tr(r)).join("")}${tr(tot, "tot")}</table>`;
+}
+function overview() {
+  const sets = Object.keys(MC).map((m) => ({ c: MC[m], data: series((c) => camOk(c) && c.media === m, "spend") }));
+  const share = Object.keys(MC).map((m) => ({ n: m, c: MC[m], v: agg((c) => camOk(c) && c.media === m).spend })).filter((p) => p.v);
+  const lay = ["上", "中", "下"].map((l) => ({ n: l + "層", c: l === "上" ? "#D9B98A" : l === "中" ? "#C9A45C" : "#3A3632", v: agg((c) => camOk(c) && c.layer === l).spend })).filter((p) => p.v);
+  const leg = (ps) => `<div class="legend" style="flex-direction:column">${ps.map((p) => `<span><i style="background:${p.c}"></i>${p.n} ${pct(p.v / ps.reduce((s, q) => s + q.v, 0), 0)}</span>`).join("")}</div>`;
+  return tiles() + `<div class="grid2"><div>
+   <div class="box"><h3>📅 每日花費（依媒體）與申辦完成</h3>${lineSvg([...sets, { c: "#D9381E", data: series(camOk, "app") }])}<div class="legend">${Object.entries(MC).map(([k, v]) => `<span><i style="background:${v}"></i>${k} 花費</span>`).join("")}<span><i style="background:#D9381E"></i>申辦完成</span></div></div>
+   <div class="box"><h3>🎯 KPI 進度（依商品）</h3><p class="hint">年度目標由客戶設定；本季為預估值。申辦看平台，開戶、核卡看銀行回填</p>${kpiBox()}</div>
+   <div class="box"><h3>📊 媒體比較</h3><p class="hint">開戶、核卡為銀行每週回填的分組數字；通過率＝開戶 ÷ 申辦</p>${mediaTable()}</div>
+  </div><div>
+   <div class="box"><h3>💰 花費佔比：媒體／層級</h3><div style="display:flex;gap:10px;align-items:center">${donut(share)}${leg(share)}</div><div style="display:flex;gap:10px;align-items:center;margin-top:6px">${donut(lay)}${leg(lay)}</div></div>
+   <div class="box">${alertsHtml()}</div>
+  </div></div>`;
+}
+function health() {
+  const cnt = (k) => CHECKS.filter((c) => c[4] === k).length;
+  const dims = [...new Set(CHECKS.map((c) => c[0]))];
+  return `<div class="sum"><div style="background:#2E7D32">🟢 正常 ${cnt("g")}</div><div style="background:#D9A21E">🟡 注意 ${cnt("y")}</div><div style="background:#D9381E">🔴 需處理 ${cnt("r")}</div><div style="background:#3A3632;color:#C9A45C">每週 review 一次看完 ${CHECKS.length} 個檢核點</div></div>
+  <p class="hint">關鍵字、素材、受眾、預算、出價、追蹤、分組、聲量、網站九個維度，系統依門檻自動亮燈；點一列直接跳到要調整的地方</p>
+  <div class="grid3">${dims.map((d) => `<div class="box"><h3>${d}</h3>${CHECKS.filter((c) => c[0] === d).map((c) => `<div class="chk" data-go='${JSON.stringify(c[6])}'><div class="dot" style="background:${LIGHT[c[4]]}"></div><div><div class="n">${c[1]}</div><div class="s">${c[5]}｜門檻 ${c[3]}</div></div><div class="v" style="color:${LIGHT[c[4]]}">${c[2]}</div></div>`).join("")}</div>`).join("")}</div>`;
+}
+function campaign() {
+  const cs = CAMPS.map((c) => ({ c, ...agg((x) => x === c) })).filter((r) => camOk(r.c)).sort((a, b) => (st.sort === "name" ? a.c.name.localeCompare(b.c.name) : b[st.sort] - a[st.sort]));
+  const types = [["認知", "上層｜認知"], ["導流", "中層｜導流"], ["轉換", "下層｜轉換"]].map(([t, n]) => ({ t, n, ...agg((c) => camOk(c) && c.type === t) }));
+  return tiles() + `<div class="grid3">${types.map((t) => `<div class="box"><h3>${t.n}</h3><div style="display:flex;justify-content:space-between"><span>花費 <b>NT$ ${fmt(t.spend)}</b></span><span>${t.t === "認知" ? `CPM <b>${fmt(t.spend / Math.max(t.imp, 1) * 1000)}</b>` : t.t === "導流" ? `CPC <b>${fmt(t.spend / Math.max(t.clk, 1))}</b>` : `申辦成本 <b>${fmt(t.spend / Math.max(t.app, 1))}</b>`}</span></div></div>`).join("")}</div>
+  <div class="box"><h3>🎯 廣告活動明細</h3><p class="hint">依活動類型與目標分組；點有底線的欄位排序</p>
+  <table><tr><th data-s="name">廣告活動</th><th>平台</th><th>層級</th><th>活動類型</th><th>目標</th><th>KPI</th><th>族群</th><th data-s="spend">花費</th><th data-s="imp">曝光</th><th data-s="clk">點擊</th><th>CTR</th><th>CPM</th><th data-s="app">申辦</th><th>申辦成本</th><th>開戶</th></tr>
+  ${cs.map((r) => `<tr><td class="l">${r.c.name}</td><td>${r.c.plat}</td><td>${layerTag(r.c.layer)}</td><td>${r.c.type}</td><td>${r.c.goal}</td><td>${r.c.prod}</td><td>${r.c.ta}</td><td>${fmt(r.spend)}</td><td>${fmt(r.imp)}</td><td>${fmt(r.clk)}</td><td>${pct(r.clk / Math.max(r.imp, 1), 2)}</td><td>${fmt(r.spend / Math.max(r.imp, 1) * 1000)}</td><td>${fmt(r.app)}</td><td>${r.app ? fmt(r.spend / r.app) : "—"}</td><td>${fmt(r.open)}</td></tr>`).join("")}</table></div>`;
+}
+function audience() {
+  const a = AUD.filter((x) => (st.ta === "all" || x.ta === st.ta || x.ta === "全部") && (st.media === "all" || x.m === st.media)).sort((x, y) => x.cpa - y.cpa);
+  const mx = Math.max(...AGES.map((x) => x.sp)), ma = Math.max(...AGES.map((x) => x.app)), ta = AGES.reduce((s, q) => s + q.app, 0);
+  return tiles() + `<div class="grid2"><div class="box"><h3>👥 受眾成效</h3><p class="hint">興趣受眾、受眾包、再行銷分開看；獨家受眾包標紅</p>
+  <table><tr><th>受眾</th><th>媒體</th><th>族群</th><th>類型</th><th>受眾人數</th><th>花費</th><th>申辦</th><th>申辦成本</th><th>通過率</th></tr>
+  ${a.map((x) => `<tr><td class="l">${x.n}</td><td>${x.m}</td><td>${x.ta}</td><td>${x.k.includes("獨家") ? `<span class="tag bad">${x.k}</span>` : x.k}</td><td>${fmt(x.size)}</td><td>${fmt(x.sp)}</td><td>${fmt(x.app)}</td><td>${fmt(x.cpa)}</td><td>${pct(x.rate, 0)}</td></tr>`).join("")}</table></div>
+  <div class="box"><h3>🎂 花費 vs 申辦（依年齡）</h3><p class="hint">看預算有沒有花在申辦多的年齡層</p>
+  ${AGES.map((x) => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:11px"><b>${x.a}</b><span>花費 ${pct(x.sp, 0)}｜申辦 ${pct(x.app / ta, 0)}</span></div><div style="height:7px;background:#E6D9C2;border-radius:4px;width:${(x.sp / mx) * 100}%"></div><div style="height:7px;background:#8A6630;border-radius:4px;margin-top:2px;width:${(x.app / ma) * 100}%"></div></div>`).join("")}
+  <div class="legend"><span><i style="background:#E6D9C2"></i>花費</span><span><i style="background:#8A6630"></i>申辦</span></div></div></div>`;
+}
+function creative() {
+  const c = CR.filter((x) => st.ta === "all" || x.ta === st.ta);
+  const med = c.map((x) => x.sp / Math.max(x.app, 1)).sort((a, b) => a - b)[Math.floor(c.length / 2)];
+  const LN = { L1: "共鳴", L2: "優勢", L3: "行動" };
+  const byL = ["L1", "L2", "L3"].map((l) => { const g = c.filter((x) => x.l === l); const sp = g.reduce((s, x) => s + x.sp, 0), ap = g.reduce((s, x) => s + x.app, 0), cl = g.reduce((s, x) => s + x.clk, 0), im = g.reduce((s, x) => s + x.imp, 0); return { l, sp, ap, ctr: cl / Math.max(im, 1) }; });
+  return tiles() + `<div class="grid3">${byL.map((x) => `<div class="box"><h3><span class="tag ${x.l}">${LN[x.l]}</span>${x.l === "L1" ? "說中痛點" : x.l === "L2" ? "品牌好在哪" : "今天就能做的動作"}</h3><div style="display:flex;justify-content:space-between"><span>CTR <b>${pct(x.ctr, 2)}</b></span><span>申辦 <b>${fmt(x.ap)}</b></span><span>成本 <b>${fmt(x.sp / Math.max(x.ap, 1))}</b></span></div></div>`).join("")}</div>
+  <div class="box"><h3>🖼️ 素材成效</h3><p class="hint">依共鳴／優勢／行動三層；頻率過高標「疲乏汰換」，申辦成本低於中位數標「加碼」</p>
+  <div class="creatives">${c.map((x) => { const cpa = x.sp / Math.max(x.app, 1), s2 = x.freq > 3.5 ? ["疲乏汰換", "bad"] : cpa < med ? ["加碼", "good"] : ["觀察", "mid"]; const dark = ["#3A3632", "#8A6630", "#6B645C"].includes(x.bg);
+    return `<div class="cr"><div class="img" style="background:${x.bg};color:${dark ? "#fff" : "#1E1C1A"}"><small>品牌名稱｜${x.f}</small><b>${x.h}</b><small>${x.s}</small></div><div class="meta"><div><span><span class="tag ${x.l}">${LN[x.l]}</span>${x.ta}</span><span class="tag ${s2[1]}">${s2[0]}</span></div><div><span>曝光</span><b>${fmt(x.imp)}</b></div><div><span>CTR</span><b>${pct(x.ctr, 2)}</b></div><div><span>申辦</span><b>${fmt(x.app)}</b></div><div><span>申辦成本</span><b>${fmt(cpa)}</b></div><div><span>頻率</span><b style="color:${x.freq > 3.5 ? "#D9381E" : "inherit"}">${x.freq}</b></div></div></div>`; }).join("")}</div></div>`;
+}
+function group() {
+  const g = CAMPS.map((c) => ({ c, ...agg((x) => x === c) })).filter((r) => r.app && camOk(r.c)).map((r) => ({ ...r, rate: r.open / r.app })).sort((a, b) => b.rate - a.rate);
+  return tiles() + `<div class="box"><h3>🔗 分組追蹤</h3><p class="hint">依 UTM 分組（媒體 × 族群 × 素材），銀行每週回填各組開戶、核卡數；通過率高的組加碼，低的組查斷點、用素材補</p>
+  <table><tr><th>分組</th><th>族群</th><th>申辦完成</th><th>開戶</th><th>核卡</th><th>開戶通過率</th><th>判斷</th></tr>
+  ${g.map((r, i) => `<tr><td class="l">${r.c.name}</td><td>${r.c.ta}</td><td>${fmt(r.app)}</td><td>${fmt(r.open)}</td><td>${fmt(r.card)}</td><td><b>${pct(r.rate, 0)}</b></td><td>${r.rate > 0.66 ? '<span class="tag good">加碼</span>' : r.rate < 0.57 ? `<span class="tag bad">查斷點：${["補件", "驗證", "資格"][i % 3]}</span>` : '<span class="tag mid">觀察</span>'}</td></tr>`).join("")}</table></div>`;
+}
+function voice() {
+  const v = VOICE.slice(-st.range), W = 760, H = 200, pad = 34, n = v.length, bw = (W - pad * 2) / n * 0.75, m = Math.max(...v.map((x) => x.tot));
+  let bars = "";
+  v.forEach((x, i) => { const X = pad + (i / Math.max(n - 1, 1)) * (W - pad * 2) - bw / 2; let y = H - 26; [["pos", "#C9A45C"], ["mid", "#E6D9C2"], ["neg", "#D9381E"]].forEach(([k, c]) => { const h = (x[k] / m) * (H - 50); y -= h; bars += `<rect x="${X}" y="${y}" width="${bw}" height="${h}" fill="${c}"/>`; }); if (i % Math.ceil(n / 8) === 0) bars += `<text x="${X}" y="${H - 8}" font-size="10" fill="#8A8580">${x.d.getMonth() + 1}/${x.d.getDate()}</text>`; });
+  const mark = N - 26 - (N - st.range), mx = mark >= 0 ? pad + (mark / Math.max(n - 1, 1)) * (W - pad * 2) : -1;
+  const tot = v.reduce((s, x) => s + x.tot, 0), neg = v.reduce((s, x) => s + x.neg, 0), pos = v.reduce((s, x) => s + x.pos, 0);
+  return `<div class="tiles" style="grid-template-columns:repeat(5,1fr)"><div class="tile"><div class="k">社群討論量</div><div class="v">${fmt(tot)}</div></div><div class="tile"><div class="k">正面</div><div class="v" style="color:#8A6630">${pct(pos / tot)}</div></div><div class="tile"><div class="k">負面</div><div class="v" style="color:#D9381E">${pct(neg / tot)}</div></div><div class="tile"><div class="k">品牌字搜尋量<span class='info' title='Google 上搜尋品牌名稱的次數'>?</span></div><div class="v">${fmt(v.reduce((s, x) => s + x.search, 0))}</div></div><div class="tile"><div class="k">聲量佔比（五家）</div><div class="v">15%</div></div></div>
+  <div class="grid2"><div>
+   <div class="box"><h3>💬 社群聲量與好感度（輿情系統回拋）</h3><svg viewBox="0 0 ${W} ${H}" width="100%">${mx > 0 ? `<line x1="${mx}" x2="${mx}" y1="10" y2="${H - 26}" stroke="#D9381E" stroke-dasharray="4 4"/><text x="${mx + 4}" y="20" font-size="11" fill="#D9381E">1 月權益公布</text>` : ""}${bars}</svg><div class="legend"><span><i style="background:#C9A45C"></i>正面</span><span><i style="background:#E6D9C2"></i>中立</span><span><i style="background:#D9381E"></i>負面</span></div></div>
+   <div class="box"><h3>🔍 品牌字搜尋量 × 廣告花費</h3><p class="hint">看廣告有沒有帶動「主動搜尋品牌」的人變多</p>${lineSvg([{ c: "#E6D9C2", bar: true, data: series(camOk, "spend") }, { c: "#8A6630", data: v.filter((_, i) => st.gran === "d" || i % 7 === 0).map((x) => ({ d: x.d, v: x.search })) }], 760, 180)}<div class="legend"><span><i style="background:#E6D9C2"></i>廣告花費</span><span><i style="background:#8A6630"></i>品牌字搜尋量</span></div></div>
+  </div><div>
+   <div class="box"><h3>🏷️ 熱門話題</h3><div class="chips">${TOPICS.map(([t, w]) => `<span style="font-size:${10 + w * 3}px;color:${["#門檻", "#30萬"].includes(t) ? "#D9381E" : "#3A3632"}">${t}</span>`).join("")}</div></div>
+   <div class="box"><h3>⚠️ 負評主題 → 素材怎麼回應</h3><table><tr><th>負評主題</th><th>佔負評</th><th>素材回應</th></tr><tr><td class="l">門檻變高、小資不友善</td><td>46%</td><td class="l">三條路擇一升等</td></tr><tr><td class="l">權益複雜、看不懂</td><td>31%</td><td class="l">一張圖看懂升等</td></tr><tr><td class="l">開戶流程卡關</td><td>14%</td><td class="l">申辦前提醒準備證件</td></tr></table></div>
+   <div class="box"><h3>🏁 競品聲量佔比</h3>${COMP.map(([nm, s]) => `<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:11px"><b>${nm}</b><span>${pct(s, 0)}</span></div><div style="height:8px;border-radius:4px;background:${nm === "本品牌" ? "#8A6630" : "#E6D9C2"};width:${s / 0.33 * 100}%"></div></div>`).join("")}<p class="hint">本月競品動態：競品 A 新戶優利、競品 B 演唱會優先購</p></div>
+  </div></div>`;
+}
+
+function kpiBox() {
+  const K = [["帳戶開戶", "開戶", 30000, 10500, "open"], ["信用卡", "核卡", 10000, 3500, "card"], ["銀證雙開", "開戶", null, null, "open"]];
+  return `<table><tr><th>KPI</th><th>申辦完成</th><th>結果</th><th>本季累計</th><th>本季預估</th><th>達成</th><th>年度目標</th></tr>${K.map(([k, lab, yr, q, key]) => { const a = agg((c) => c.prod === k && (st.media === "all" || c.media === st.media)); const done = Math.round(a[key] * 1.6); const rate = q ? done / q : 0;
+    return `<tr><td class="l"><b>${k}</b></td><td>${fmt(a.app)}</td><td>${lab}</td><td>${fmt(done)}</td><td>${q ? fmt(q) : "—"}</td><td>${q ? `<div style="display:inline-block;width:70px;height:7px;background:#E6D9C2;border-radius:4px;vertical-align:middle;margin-right:4px"><div style="height:7px;border-radius:4px;background:${rate > 0.6 ? "#2E7D32" : "#D9A21E"};width:${Math.min(rate, 1) * 100}%"></div></div>${pct(rate, 0)}` : "計入開戶"}</td><td>${yr ? fmt(yr) : "—"}</td></tr>`; }).join("")}</table>`;
+}
+function ga4() {
+  const SRC = [["google / cpc", "Google", 48200, 0.62, 2.4, 0.31, 0.062], ["facebook / paid", "Meta", 39500, 0.71, 1.6, 0.27, 0.048], ["line / lap", "LINE", 9800, 0.68, 1.4, 0.22, 0.03], ["line / beacon", "情境媒體", 3100, 0.83, 1.2, 0.19, 0.021], ["mitake / banner", "情境媒體", 2600, 0.74, 2.1, 0.35, 0.044], ["tenmax / pdooh", "情境媒體", 900, 0.88, 1.1, 0.18, 0.026], ["(direct) / (none)", "自然", 26400, 0.38, 3.0, 0.41, 0.083], ["google / organic", "自然", 21800, 0.55, 2.7, 0.36, 0.057], ["chatgpt.com / referral", "自然", 1200, 0.79, 2.9, 0.44, 0.069]];
+  const tot = SRC.reduce((s, r) => s + r[2], 0);
+  const STEP = [["進站", 153500, 1], ["看權益／升等頁", 61400, 0.4], ["點立即申辦", 18900, 0.308], ["申辦完成（感謝頁）", 6900, 0.365]];
+  const mob = [1, 0.39, 0.29, 0.35], desk = [1, 0.43, 0.34, 0.39];
+  const share = [["Google", "#C9A45C"], ["Meta", "#8A6630"], ["LINE", "#6B645C"], ["情境媒體", "#D9B98A"], ["自然", "#E6D9C2"]].map(([n, c]) => ({ n, c, v: SRC.filter((r) => r[1] === n).reduce((s, r) => s + r[2], 0) }));
+  const maxS = STEP[0][1];
+  return `<div class="tiles" style="grid-template-columns:repeat(6,1fr)"><div class="tile"><div class="k">工作階段</div><div class="v">${fmt(tot)}</div></div><div class="tile"><div class="k">新訪客佔比</div><div class="v">61%</div></div><div class="tile"><div class="k">付費流量佔比</div><div class="v">${pct(share.filter((p) => p.n !== "自然").reduce((s, p) => s + p.v, 0) / tot, 0)}</div></div><div class="tile"><div class="k">點立即申辦</div><div class="v">${fmt(18900)}</div></div><div class="tile"><div class="k">申辦完成</div><div class="v">${fmt(6900)}</div></div><div class="tile"><div class="k">申辦完成率</div><div class="v">${pct(6900 / 18900, 0)}</div></div></div>
+  <div class="grid2"><div>
+   <div class="box"><h3>🧭 官網行為：從進站到感謝頁</h3><p class="hint">官網追蹤事件；黃色＝續行比例最低的一步，對照手機與桌機</p>
+   ${STEP.map(([n, v, r], i) => { const worst = n === "點立即申辦"; return `<div style="display:grid;grid-template-columns:130px 1fr 140px;gap:8px;align-items:center;margin:5px 0"><b style="color:${worst ? "#B8860B" : "inherit"}">${n}</b><div style="height:18px;background:${worst ? "#D9A21E" : i ? "#C9A45C" : "#3A3632"};border-radius:4px;width:${Math.max(v / maxS * 100, 3)}%"></div><span style="font-size:11px">${fmt(v)}${i ? `｜續行 ${pct(r, 0)}｜手機 ${pct(mob[i], 0)}／桌機 ${pct(desk[i], 0)}` : ""}</span></div>`; }).join("")}
+   <div class="alert" style="margin-top:8px"><b>🟡 看過權益頁的人，只有 31% 點立即申辦；手機比桌機低 5 個百分點</b><span>媒體端：到達頁對應素材訊息、一頁只講一個權益；網站端：建議客戶檢視手機版權益頁的申辦按鈕位置</span></div></div>
+   <div class="box"><h3>📡 流量組成：哪個來源帶來的人最會申辦</h3><table><tr><th>來源／媒介</th><th>類別</th><th>工作階段</th><th>佔比</th><th>新訪客</th><th>平均停留（分）</th><th>看權益頁</th><th>申辦完成率</th></tr>
+   ${SRC.map((r) => `<tr><td class="l">${r[0]}</td><td>${r[1]}</td><td>${fmt(r[2])}</td><td>${pct(r[2] / tot, 1)}</td><td>${pct(r[3], 0)}</td><td>${r[4]}</td><td>${pct(r[5], 0)}</td><td><b>${pct(r[6], 1)}</b></td></tr>`).join("")}</table></div>
+  </div><div>
+   <div class="box"><h3>🍩 流量來源佔比</h3><div style="display:flex;gap:10px;align-items:center">${donut(share)}<div class="legend" style="flex-direction:column">${share.map((p) => `<span><i style="background:${p.c}"></i>${p.n} ${pct(p.v / tot, 0)}</span>`).join("")}</div></div></div>
+   <div class="box"><h3>🩺 網站檢核</h3>${[["權益頁到點申辦 31%", "y", "低於門檻 35%，CTA 可加強"], ["手機 vs 桌機差距 5 個百分點", "y", "手機版權益頁待檢視"], ["付費流量跳出率 41%", "g", "到達頁承接正常"], ["情境媒體進站停留 1.1–2.1 分", "y", "到達頁可加強情境延續"], ["AI 平台（ChatGPT）帶來的流量", "g", "完成率 6.9%，持續追蹤"]].map(([t, l, d]) => `<div class="chk" style="cursor:default"><div class="dot" style="background:${LIGHT[l]}"></div><div><div class="n">${t}</div><div class="s">${d}</div></div><div></div></div>`).join("")}</div>
+  </div></div>`;
+}
+function push() {
+  const r = ROWS.filter((x) => x.i === N - 1).reduce((a, x) => (a.s += x.spend, a.a += x.app, a), { s: 0, a: 0 });
+  $("#phone").innerHTML = `<div class="who">cacaFly 成效小幫手</div>
+  <div class="bubble"><h4>☀️ 昨日快報｜${DATES[N - 1].getMonth() + 1}/${DATES[N - 1].getDate()}</h4>花費 NT$ ${fmt(r.s)}<br>申辦完成 ${fmt(r.a)} 筆｜成本 NT$ ${fmt(r.s / r.a)}</div>
+  <div class="bubble"><h4>🩺 健檢</h4>🟢 ${CHECKS.filter((c) => c[4] === "g").length}　🟡 ${CHECKS.filter((c) => c[4] === "y").length}　🔴 ${CHECKS.filter((c) => c[4] === "r").length}<br>🔴 素材頻率過高 1 支，今天換上新切角<br>🔴 開戶回填本週未到，已通知窗口</div>
+  <div class="bubble"><h4>💬 聲量</h4>權益公布後「門檻」負評升高，本週素材改主打低門檻升等方式。</div>
+  <div class="bubble" style="text-align:center"><b style="color:#8A6630">打開完整儀表板 →</b></div>`;
+  $("#modal").classList.add("on");
+}
+const VIEWS = { overview, health, campaign, audience, creative, group, ga4, voice };
+function go(g) { Object.assign(st, { media: "all", layer: "all" }, g); $("#media").value = st.media; $("#layer").value = st.layer; render(); window.scrollTo(0, 0); }
+function render() {
+  document.querySelectorAll("#nav .t").forEach((t) => t.classList.toggle("on", t.dataset.v === st.tab));
+  $("#page").innerHTML = VIEWS[st.tab]();
+  document.querySelectorAll("[data-go]").forEach((el) => el.onclick = () => go(JSON.parse(el.dataset.go)));
+  document.querySelectorAll("th[data-s]").forEach((th) => th.onclick = () => { st.sort = th.dataset.s; render(); });
+}
+document.querySelectorAll("#nav .t").forEach((t) => t.onclick = () => { st.tab = t.dataset.v; render(); });
+document.querySelectorAll("#range button").forEach((b) => b.onclick = () => { document.querySelectorAll("#range button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); st.range = +b.dataset.v; render(); });
+document.querySelectorAll("#gran button").forEach((b) => b.onclick = () => { document.querySelectorAll("#gran button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); st.gran = b.dataset.v; render(); });
+$("#media").onchange = (e) => { st.media = e.target.value; render(); };
+$("#layer").onchange = (e) => { st.layer = e.target.value; render(); };
+$("#ta").onchange = (e) => { st.ta = e.target.value; render(); };
+$("#kpi").onchange = (e) => { st.kpi = e.target.value; render(); };
+$("#pushBtn").onclick = push;
+$("#closeBtn").onclick = () => $("#modal").classList.remove("on");
+render();
+if (location.hash.includes("push")) push();
+</script>
+</body>
+</html>
